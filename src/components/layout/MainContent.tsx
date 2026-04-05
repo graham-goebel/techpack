@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
-import type { ProjectConfig, Tier } from '../../types';
+import type { ProjectConfig, TechOption, Tier } from '../../types';
 import { projectTypes } from '../../data/projectTypes';
 import { blocks } from '../../data/blocks';
 import { techOptions } from '../../data/techOptions';
 import { generatePrompt } from '../../utils/promptGenerator';
 import { ArchitectureFlowCanvas } from '../architecture/ArchitectureFlowCanvas';
+import { BlockOcticon, ProjectTypeOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
-
 interface MainContentProps {
   config: ProjectConfig;
   tier: Tier;
@@ -16,7 +16,14 @@ interface MainContentProps {
   onSetProjectType: (typeId: string) => void;
 }
 
-export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoice, onSetProjectType }: MainContentProps) {
+export function MainContent({
+  config,
+  tier,
+  onSave,
+  onToggleBlock,
+  onSetTechChoice,
+  onSetProjectType,
+}: MainContentProps) {
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
@@ -71,10 +78,11 @@ export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoi
                   onClick={() => onSetProjectType(type.id)}
                   className="text-left p-5 bg-transparent border border-rule/25 hover:bg-white/45 hover:backdrop-blur-sm hover:border-rule/40 transition-colors group"
                 >
-                  <div aria-hidden className="mb-3">
+                  <div aria-hidden className="mb-3 flex items-center gap-3">
+                    <ProjectTypeOcticon typeId={type.id} size={22} className="text-ink-muted" />
                     <ComplexityDots filled={type.tier} size="dot" />
                   </div>
-                  <h3 className="text-[15px] font-bold text-ink tracking-tight mb-1 group-hover:text-accent transition-colors">
+                  <h3 className="text-[15px] font-semibold text-ink tracking-tight mb-1 group-hover:text-accent transition-colors">
                     {type.name}
                   </h3>
                   <p className="text-[10px] text-ink-muted leading-snug mb-3">
@@ -109,92 +117,77 @@ export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoi
 
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-surface">
-      {/* Top bar — matches sidebar masthead (.app-chrome-row) */}
-      <div className="app-chrome-row shrink-0 flex items-center justify-between border-b border-rule-strong px-5">
-        <div className="min-w-0">
-          <div className="flex items-baseline gap-3 flex-wrap">
-            <h2 className="text-[22px] font-bold text-ink tracking-tight leading-none">
-              {config.name || 'Untitled'}
-            </h2>
-            <span className="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">
-              {projectType?.name}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 mt-1.5 text-[10px] text-ink-muted uppercase tracking-wider">
-            <span>{projectType?.tagline}</span>
-            <span className="text-rule">|</span>
-            <span>{selectedBlocks.length} blocks</span>
-            <span className="text-rule">|</span>
-            <span>{prompt.length.toLocaleString()} chars</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSave}
-            className="border border-rule px-3 py-1.5 text-[10px] font-bold text-ink uppercase tracking-wider hover:bg-surface-raised transition-colors"
-          >
-            {saved ? 'Saved' : 'Save'}
-          </button>
-          <button
-            onClick={handleCopy}
-            className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-              copied
-                ? 'bg-ink/10 text-ink'
-                : 'bg-ink text-surface hover:bg-ink-secondary'
-            }`}
-          >
-            {copied ? 'Copied' : 'Copy Prompt'}
-          </button>
-        </div>
-      </div>
-
-      {/* Content: canvas fills space and scrolls internally; prompt docked to bottom */}
+      {/* Content: canvas fills space; unified chrome matches sidebar .app-chrome-row height */}
       <div className="flex-1 min-h-0 flex flex-col">
-        {/* Architecture area */}
         <div
-          className={`border-b border-rule flex flex-1 min-h-0 flex-col ${viewMode === 'map' ? 'canvas-bg' : 'bg-surface-raised'}`}
+          className={`border-b border-rule flex flex-1 min-h-0 flex-col ${
+            viewMode === 'map' ? 'canvas-bg' : 'bg-surface-raised'
+          }`}
         >
-          {/* Header bar */}
-          <div className="shrink-0 flex items-center justify-between min-h-10 px-5 py-2 bg-white/70 backdrop-blur-sm border-b border-rule">
-            <div className="flex items-center gap-4">
-              <h3 className="text-[22px] font-bold text-ink tracking-tight">
-                Architecture
-              </h3>
-              <span className="text-[10px] text-ink-muted">
-                {selectedBlocks.length} of {visibleBlocks.length} blocks active
-              </span>
+          {/* Former top chrome + Architecture bar — same min-height as sidebar masthead */}
+          <div className="app-chrome-row shrink-0 flex items-center justify-between px-5 gap-3 bg-white/70 backdrop-blur-sm border-b border-rule min-w-0">
+            <div className="min-w-0 flex-1 flex flex-col justify-center gap-1.5">
+              <div className="flex items-baseline gap-3 flex-wrap min-w-0">
+                <h3 className="text-[22px] font-semibold text-ink tracking-tight shrink-0 leading-none">
+                  Architecture
+                </h3>
+                <span className="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">
+                  {projectType?.name}
+                </span>
+                <span className="text-[10px] text-ink-muted hidden sm:inline uppercase tracking-wider">
+                  {selectedBlocks.length} of {visibleBlocks.length} blocks active
+                </span>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap text-[10px] text-ink-muted uppercase tracking-wider">
+                <span>{projectType?.tagline}</span>
+                <span className="text-rule">|</span>
+                <span>{selectedBlocks.length} blocks</span>
+                {config.selectedLibraryIds.length > 0 && (
+                  <>
+                    <span className="text-rule">|</span>
+                    <span>
+                      {config.selectedLibraryIds.length}{' '}
+                      {config.selectedLibraryIds.length === 1 ? 'library' : 'libraries'}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <ComplexityDots
-                filled={tier}
-                size="bar"
-                aria-label="Relative scope for this preset (more red = broader default stack)"
-              />
-              <div className="flex items-center border border-rule" role="group" aria-label="View mode">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setViewMode('list')}
-                className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors ${
-                  viewMode === 'list' ? 'bg-ink text-surface' : 'text-ink-muted hover:text-ink'
-                }`}
-                aria-pressed={viewMode === 'list'}
+                onClick={handleSave}
+                className="border border-rule px-3 py-1.5 text-[10px] font-bold text-ink uppercase tracking-wider hover:bg-surface-raised transition-colors"
               >
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                  <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
+                {saved ? 'Saved' : 'Save'}
               </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('map')}
-                className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors border-l border-rule ${
-                  viewMode === 'map' ? 'bg-ink text-surface' : 'text-ink-muted hover:text-ink'
-                }`}
-                aria-pressed={viewMode === 'map'}
-              >
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                </svg>
-              </button>
+              <div className="flex items-center border border-rule" role="group" aria-label="Main workspace view">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors ${
+                    viewMode === 'list' ? 'bg-ink text-surface' : 'text-ink-muted hover:text-ink'
+                  }`}
+                  aria-pressed={viewMode === 'list'}
+                  title="List"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                    <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('map')}
+                  className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors border-l border-rule ${
+                    viewMode === 'map' ? 'bg-ink text-surface' : 'text-ink-muted hover:text-ink'
+                  }`}
+                  aria-pressed={viewMode === 'map'}
+                  title="Map"
+                >
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
@@ -222,30 +215,12 @@ export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoi
                   return (
                     <div
                       key={block.id}
-                      className={`transition-colors ${!isSelected ? 'opacity-40' : ''}`}
+                      className={`transition-colors ${!isSelected && !isRequired ? 'opacity-60' : ''}`}
                     >
                       {/* Row */}
-                      <div className="flex items-center gap-2.5 px-5 py-3 hover:bg-surface-raised transition-colors">
-                        {/* Toggle (optional / recommended only) */}
-                        <div className="w-4 shrink-0 flex justify-center">
-                          {!isRequired && (
-                            <button
-                              type="button"
-                              onClick={() => onToggleBlock(block.id)}
-                              className={`h-4 w-4 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                isSelected ? 'border-ink bg-ink' : 'border-neutral-300 bg-white hover:border-neutral-400'
-                              }`}
-                              aria-pressed={isSelected}
-                              aria-label={isSelected ? 'Included' : 'Include'}
-                            >
-                              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Block icon (emoji) */}
-                        <span className="text-base shrink-0 select-none leading-none" aria-hidden>
-                          {block.icon}
+                      <div className="flex items-center gap-2.5 px-5 py-5 min-h-[4.5rem] hover:bg-surface-raised transition-colors">
+                        <span className="shrink-0 text-ink-muted flex items-center justify-center" aria-hidden>
+                          <BlockOcticon blockId={block.id} size={18} />
                         </span>
 
                         {/* Name + summary */}
@@ -255,7 +230,7 @@ export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoi
                           className="flex-1 min-w-0 text-left"
                         >
                           <div className="flex items-baseline gap-2">
-                            <span className={`text-[13px] font-bold tracking-tight ${isSelected ? 'text-ink' : 'text-neutral-400'}`}>
+                            <span className={`text-[13px] font-semibold tracking-tight ${isSelected || isRequired ? 'text-ink' : 'text-neutral-400'}`}>
                               {block.name}
                             </span>
                             <span className={`text-[9px] font-bold uppercase tracking-wider ${
@@ -264,46 +239,56 @@ export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoi
                               {status === 'required' ? 'Required' : status === 'recommended' ? 'Recommended' : 'Optional'}
                             </span>
                           </div>
-                          {isSelected && (
-                            <p className="text-[11px] text-ink-muted leading-snug mt-0.5 line-clamp-1">
-                              {block.summary}
-                            </p>
-                          )}
+                          <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
+                            {block.summary}
+                          </p>
                         </button>
 
                         {/* Tech chip */}
                         {isSelected && chosenOption && (
-                          <span className="shrink-0 text-[10px] text-ink-secondary bg-surface-raised border border-rule px-2 py-0.5">
-                            {chosenOption.name}
-                          </span>
+                          <TechChoiceChip option={chosenOption} instanceId={block.id} />
                         )}
 
-                        {/* Chevron */}
-                        <button
-                          type="button"
-                          onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
-                          className="shrink-0 h-5 w-5 flex items-center justify-center text-ink-faint hover:text-ink transition-colors"
-                          aria-expanded={isExpanded}
-                          aria-label="Expand details"
-                        >
-                          <svg
-                            className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                        {/* Add/remove or expand chevron */}
+                        {!isRequired && !isSelected ? (
+                          <button
+                            type="button"
+                            onClick={() => onToggleBlock(block.id)}
+                            className="shrink-0 h-5 w-5 flex items-center justify-center text-ink-faint hover:text-ink transition-colors"
+                            aria-label="Add to project"
+                            title="Add"
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
+                            className="shrink-0 h-5 w-5 flex items-center justify-center text-ink-faint hover:text-ink transition-colors"
+                            aria-expanded={isExpanded}
+                            aria-label="Expand details"
+                          >
+                            <svg
+                              className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
 
                       {/* Expanded detail panel */}
                       {isExpanded && isSelected && (
                         <div className="bg-surface-raised border-t border-rule animate-fade-in">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-rule">
-                            <div className="bg-surface-raised px-5 py-3">
+                            <div className="bg-surface-raised px-5 py-4">
                               <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">What is this</p>
                               <p className="text-[11px] text-ink-secondary leading-relaxed">{block.explanation}</p>
                             </div>
-                            <div className="bg-surface-raised px-5 py-3">
+                            <div className="bg-surface-raised px-5 py-4">
                               <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">Why</p>
                               <p className="text-[11px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
                             </div>
@@ -313,7 +298,7 @@ export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoi
                             return (
                               <div className="border-t border-rule">
                                 {/* Chosen option summary */}
-                                <div className="px-5 py-3">
+                                <div className="px-5 py-4">
                                   <div className="flex items-center justify-between mb-2">
                                     <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">Technology</p>
                                     <button
@@ -382,7 +367,7 @@ export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoi
                                           key={option.id}
                                           type="button"
                                           onClick={() => onSetTechChoice(block.id, option.id)}
-                                          className={`w-full text-left px-5 py-3 border-b border-rule last:border-b-0 transition-colors ${
+                                          className={`w-full text-left px-5 py-4 border-b border-rule last:border-b-0 transition-colors ${
                                             isChosen ? 'bg-surface' : 'hover:bg-surface-raised'
                                           }`}
                                         >
@@ -452,7 +437,7 @@ export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoi
             className={`flex items-center justify-between gap-3 ${promptExpanded ? 'mb-3' : ''}`}
           >
             <div className="flex items-center gap-3 min-w-0 flex-wrap">
-              <h3 className="text-[22px] font-bold text-ink tracking-tight shrink-0">
+              <h3 className="text-[22px] font-semibold text-ink tracking-tight shrink-0">
                 Prompt
               </h3>
               {!promptExpanded && prompt.length > 0 && (
@@ -495,6 +480,43 @@ export function MainContent({ config, tier, onSave, onToggleBlock, onSetTechChoi
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function TechChoiceChip({ option, instanceId }: { option: TechOption; instanceId: string }) {
+  const a11yId = `tech-chip-desc-${instanceId}`;
+  return (
+    <div className="group relative shrink-0">
+      <span id={a11yId} className="sr-only">
+        {option.description}
+        {option.pros.length > 0 ? ` Strengths: ${option.pros.join('. ')}` : ''}
+      </span>
+      <span
+        className="block text-[10px] text-ink-secondary bg-surface-raised border border-rule px-2 py-0.5 rounded-sm cursor-default outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
+        aria-describedby={a11yId}
+        tabIndex={0}
+      >
+        {option.name}
+      </span>
+      <div
+        role="tooltip"
+        className="pointer-events-none absolute z-[80] right-0 bottom-[calc(100%+6px)] w-[min(18rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[9px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+      >
+        <p className="leading-relaxed">{option.description}</p>
+        {option.pros.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-white/15">
+            <p className="text-[8px] font-bold uppercase tracking-[0.08em] text-surface/50 mb-1">
+              Why this choice
+            </p>
+            <ul className="space-y-0.5 text-[9px] text-surface/75 list-disc pl-3.5 marker:text-surface/45">
+              {option.pros.map((pro, i) => (
+                <li key={i}>{pro}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

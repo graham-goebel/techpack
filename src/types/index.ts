@@ -7,7 +7,6 @@ export interface ProjectType {
   tagline: string;
   description: string;
   examples: string[];
-  icon: string;
 }
 
 export type BlockStatus = 'required' | 'recommended' | 'optional' | 'hidden';
@@ -15,7 +14,6 @@ export type BlockStatus = 'required' | 'recommended' | 'optional' | 'hidden';
 export interface Block {
   id: string;
   name: string;
-  icon: string;
   /** One-sentence plain-English summary */
   summary: string;
   /** Longer explanation for non-technical users */
@@ -28,6 +26,8 @@ export interface Block {
   statusForTier: (tier: Tier) => BlockStatus;
   /** IDs of tech options that belong to this block */
   techOptionIds: string[];
+  /** IDs of libraries available for this block */
+  libraryIds?: string[];
 }
 
 export interface TechOption {
@@ -40,6 +40,15 @@ export interface TechOption {
   /** Whether this is the default/recommended choice */
   isDefault: boolean;
   /** URL for learning more */
+  url?: string;
+}
+
+export interface BlockLibrary {
+  id: string;
+  blockId: string;
+  name: string;
+  category: string;
+  description: string;
   url?: string;
 }
 
@@ -58,10 +67,32 @@ export interface ToolRecommendation {
   id: string;
   name: string;
   tiers: Tier[];
+  /** Model recommendation IDs offered when this tool is selected (still filtered by project tier) */
+  modelIds: string[];
   description: string;
   reasoning: string;
   url?: string;
 }
+
+export interface ProjectUrlResource {
+  id: string;
+  kind: 'url';
+  /** Short label shown in the list */
+  label: string;
+  url: string;
+}
+
+export interface ProjectFileResource {
+  id: string;
+  kind: 'file';
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  /** data:… URL (base64). Keep small for localStorage (see app limits). */
+  dataUrl: string;
+}
+
+export type ProjectResource = ProjectUrlResource | ProjectFileResource;
 
 export interface ProjectConfig {
   id: string;
@@ -78,6 +109,12 @@ export interface ProjectConfig {
   selectedModelId: string;
   /** IDs of user-chosen tools (from toolRecommendations) */
   selectedToolIds: string[];
+  /** IDs of user-chosen libraries (from blockLibraries) */
+  selectedLibraryIds: string[];
+  /** IDs of chosen integrations (skills, MCPs, APIs, packages — see integrationCatalog) */
+  selectedIntegrationIds: string[];
+  /** User-added links and dropped files for docs / references */
+  resources: ProjectResource[];
   createdAt: number;
   updatedAt: number;
 }

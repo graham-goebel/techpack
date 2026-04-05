@@ -31,6 +31,33 @@ const pluginPlatforms: { value: string; label: string }[] = [
 ];
 
 const typeDetailFieldsByProjectType: Record<string, TypeDetailField[]> = {
+  markdown: [
+    {
+      id: 'document-type',
+      label: 'Document type',
+      input: 'chips',
+      options: [
+        { value: 'skill', label: 'Skill' },
+        { value: 'rule', label: 'Rule' },
+        { value: 'hook', label: 'Hook' },
+        { value: 'workflow', label: 'Workflow' },
+        { value: 'runbook', label: 'Runbook' },
+        { value: 'other', label: 'Other' },
+      ],
+    },
+    {
+      id: 'target-tool',
+      label: 'Target tool / platform',
+      placeholder: 'e.g. Cursor, GitHub Actions, git hooks, Make',
+    },
+    {
+      id: 'schema-conventions',
+      label: 'Schema or conventions',
+      placeholder: 'Required sections, frontmatter keys, naming rules…',
+      multiline: true,
+      rows: 3,
+    },
+  ],
   'mood-board': [
     {
       id: 'deliverable-focus',
@@ -166,6 +193,48 @@ const typeDetailFieldsByProjectType: Record<string, TypeDetailField[]> = {
       placeholder: 'e.g. GDPR, SOC2, HIPAA — or none yet',
       multiline: true,
       rows: 2,
+    },
+  ],
+  'ios-mac-app': [
+    {
+      id: 'apple-platforms',
+      label: 'Target platforms',
+      input: 'chips',
+      options: [
+        { value: 'iphone', label: 'iPhone' },
+        { value: 'ipad', label: 'iPad' },
+        { value: 'mac', label: 'Mac' },
+        { value: 'watch', label: 'Watch' },
+        { value: 'vision', label: 'Vision' },
+      ],
+    },
+    {
+      id: 'ui-framework',
+      label: 'UI framework',
+      input: 'chips',
+      options: [
+        { value: 'swiftui', label: 'SwiftUI' },
+        { value: 'uikit', label: 'UIKit' },
+        { value: 'both', label: 'Both' },
+      ],
+    },
+    {
+      id: 'app-capabilities',
+      label: 'Key capabilities',
+      placeholder: 'e.g. networking, Core Data, HealthKit, camera, notifications',
+      multiline: true,
+      rows: 3,
+    },
+    {
+      id: 'distribution',
+      label: 'Distribution',
+      input: 'chips',
+      options: [
+        { value: 'app-store', label: 'App Store' },
+        { value: 'testflight', label: 'TestFlight' },
+        { value: 'enterprise', label: 'Enterprise' },
+        { value: 'personal', label: 'Personal use' },
+      ],
     },
   ],
   platform: [

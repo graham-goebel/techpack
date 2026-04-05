@@ -1,11 +1,20 @@
-import { useCallback, useRef, useState } from 'react';
-import type { ProjectConfig, Tier } from '../../types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Block, ProjectConfig, ProjectFileResource, Tier } from '../../types';
 import { projectTypes } from '../../data/projectTypes';
 import { getTypeDetailFields } from '../../data/projectTypeDetailFields';
 import { blocks } from '../../data/blocks';
 import { techOptions } from '../../data/techOptions';
-import { modelRecommendations, toolRecommendations } from '../../data/models';
+import { blockLibraries } from '../../data/libraries';
+import { modelsForToolAndTier, toolRecommendations } from '../../data/models';
+import {
+  getVisibleIntegrations,
+  skillsShUrl,
+  type IntegrationCategory,
+  type IntegrationItem,
+} from '../../data/integrations';
+import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
+import { ResourcesPanel } from '../resources/ResourcesPanel';
 
 interface SidebarProps {
   config: ProjectConfig;
@@ -17,10 +26,24 @@ interface SidebarProps {
   onSetDescription: (desc: string) => void;
   onSetTypeDetail: (fieldId: string, value: string) => void;
   onSetModel: (modelId: string) => void;
-  onToggleTool: (toolId: string) => void;
+  onSetTool: (toolId: string | null) => void;
+  onToggleLibrary: (libraryId: string) => void;
+  onToggleIntegration: (integrationId: string) => void;
+  onAddResourceUrl: (label: string, url: string) => void;
+  onAddResourceFile: (file: Omit<ProjectFileResource, 'id' | 'kind'>) => void;
+  onRemoveResource: (id: string) => void;
 }
 
-type SectionId = 'project' | 'blocks' | 'ai';
+type SectionId = 'type' | 'project' | 'blocks' | 'resources' | 'integrations';
+
+const INTEGRATION_CATEGORY_LABELS: Record<IntegrationCategory, string> = {
+  skill: 'Skills',
+  mcp: 'MCPs',
+  api: 'APIs',
+  library: 'Libraries',
+};
+
+const INTEGRATION_CATEGORY_ORDER: IntegrationCategory[] = ['skill', 'mcp', 'api', 'library'];
 
 export function Sidebar({
   config,
@@ -32,13 +55,74 @@ export function Sidebar({
   onSetDescription,
   onSetTypeDetail,
   onSetModel,
-  onToggleTool,
+  onSetTool,
+  onToggleLibrary,
+  onToggleIntegration,
+  onAddResourceUrl,
+  onAddResourceFile,
+  onRemoveResource,
 }: SidebarProps) {
   const [openSections, setOpenSections] = useState<Set<SectionId>>(
-    new Set(['project']),
+    new Set(['type', 'project', 'resources']),
   );
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
+  const [projectTypeMenuOpen, setProjectTypeMenuOpen] = useState(false);
+  const projectTypeMenuRef = useRef<HTMLDivElement>(null);
+  const [toolMenuOpen, setToolMenuOpen] = useState(false);
+  const toolMenuRef = useRef<HTMLDivElement>(null);
+  const [integrationTab, setIntegrationTab] = useState<IntegrationCategory>('skill');
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  const selectedProjectType = useMemo(
+    () => projectTypes.find((t) => t.id === config.projectTypeId),
+    [config.projectTypeId],
+  );
+
+  useEffect(() => {
+    if (!projectTypeMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = projectTypeMenuRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setProjectTypeMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setProjectTypeMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [projectTypeMenuOpen]);
+
+  useEffect(() => {
+    if (!openSections.has('type')) setProjectTypeMenuOpen(false);
+  }, [openSections]);
+
+  useEffect(() => {
+    if (!toolMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = toolMenuRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setToolMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setToolMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [toolMenuOpen]);
+
+  useEffect(() => {
+    if (!openSections.has('type')) setToolMenuOpen(false);
+  }, [openSections]);
 
   const toggle = useCallback((id: SectionId) => {
     setOpenSections((prev) => {
@@ -77,195 +161,442 @@ export function Sidebar({
     : [];
   const typeDetails = config.typeDetails ?? {};
 
-  const models = modelRecommendations.filter((m) => m.tiers.includes(tier));
+  const selectedToolId = config.selectedToolIds[0] ?? '';
+  const selectedTool = selectedToolId
+    ? toolRecommendations.find((t) => t.id === selectedToolId)
+    : undefined;
+  const models = useMemo(
+    () => modelsForToolAndTier(selectedToolId || undefined, tier),
+    [selectedToolId, tier],
+  );
   const tools = toolRecommendations
     .filter((t) => t.tiers.includes(tier))
     .sort((a, b) => (a.id === 'cursor' ? -1 : b.id === 'cursor' ? 1 : 0));
 
+  const visibleIntegrations = useMemo(
+    () =>
+      config.projectTypeId
+        ? getVisibleIntegrations(config.projectTypeId, tier, config.projectDescription)
+        : [],
+    [config.projectTypeId, config.projectDescription, tier],
+  );
+
+  const integrationsByCategory = useMemo(() => {
+    const map = new Map<IntegrationCategory, IntegrationItem[]>();
+    for (const c of INTEGRATION_CATEGORY_ORDER) map.set(c, []);
+    for (const item of visibleIntegrations) {
+      map.get(item.category)?.push(item);
+    }
+    return map;
+  }, [visibleIntegrations]);
+
+  useEffect(() => {
+    const countIn = (c: IntegrationCategory) =>
+      visibleIntegrations.filter((i) => i.category === c).length;
+    setIntegrationTab((prev) => {
+      if (countIn(prev) > 0) return prev;
+      return INTEGRATION_CATEGORY_ORDER.find((c) => countIn(c) > 0) ?? prev;
+    });
+  }, [visibleIntegrations]);
+
   return (
     <aside className="w-[304px] shrink-0 border-r border-rule bg-surface flex flex-col h-screen overflow-hidden">
       {/* Masthead — same height + border as main chrome row */}
-      <div className="app-chrome-row shrink-0 flex flex-col justify-center px-5 border-b border-rule-strong">
-        <div className="text-[11px] font-medium text-ink-muted uppercase tracking-[0.15em] leading-none">
-          Tech Pack
+      <div className="app-chrome-row shrink-0 flex flex-col justify-center px-5 border-b border-rule-strong min-w-0">
+        <div
+          className="text-[22px] font-semibold text-ink leading-none tracking-tight truncate min-w-0"
+          title={config.name.trim() || undefined}
+        >
+          {config.name.trim() || 'Untitled'}
         </div>
-        <div className="text-[22px] font-bold text-ink leading-none tracking-tight mt-1.5">
-          Builder
+        <div className="text-[11px] font-medium text-ink-muted uppercase tracking-[0.15em] leading-none mt-1.5">
+          Tech Pack
         </div>
       </div>
 
-      {/* Scrollable sections */}
-      <div className="flex-1 overflow-y-auto">
-        {/* ── PROJECT DETAILS ─────────────────────── */}
+      {/* Scrollable sections — min-h-full + trailing flex spacer keeps blocks top-aligned and fills viewport */}
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+          <div className="flex min-h-full flex-col">
+        {/* ── OVERVIEW ────────────────────────────── */}
         <SectionHeader
-          label="Project Details"
-          open={openSections.has('project')}
-          onToggle={() => toggle('project')}
-          sectionRef={(el) => { sectionRefs.current.project = el; }}
+          label="Overview"
+          open={openSections.has('type')}
+          onToggle={() => toggle('type')}
+          sectionRef={(el) => { sectionRefs.current.type = el; }}
+          suppressTopBorder
         />
-        {openSections.has('project') && (
-          <div className="px-3 pb-3 animate-fade-in space-y-3">
-            {/* Name + Description tile */}
-            <div className="border border-rule bg-surface">
-              <div className="px-3 py-1.5 bg-surface-raised border-b border-rule">
-                <span className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">
-                  Details
-                </span>
-              </div>
-              <div className="px-3 py-2.5 border-b border-rule">
-                <label className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">Name</label>
-                <input
-                  type="text"
-                  value={config.name}
-                  onChange={(e) => onSetName(e.target.value)}
-                  placeholder="Untitled"
-                  className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
-                />
-              </div>
-              <div
-                className={`px-3 py-2.5 ${
-                  config.projectTypeId && typeDetailFields.length > 0 ? 'border-b border-rule' : ''
-                }`}
+        {openSections.has('type') && (
+          <div className="px-3 pb-3 animate-fade-in">
+            <div className="relative" ref={projectTypeMenuRef}>
+              <button
+                type="button"
+                onClick={() => setProjectTypeMenuOpen((o) => !o)}
+                aria-expanded={projectTypeMenuOpen}
+                aria-haspopup="listbox"
+                aria-label="Project type"
+                className="w-full flex items-start gap-2 px-3 py-2.5 text-left border border-rule/40 rounded-lg bg-white/35 hover:bg-white/50 backdrop-blur-sm transition-colors"
               >
-                <label className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">Description</label>
-                <textarea
-                  value={config.projectDescription}
-                  onChange={(e) => onSetDescription(e.target.value)}
-                  placeholder="What does it do?"
-                  rows={2}
-                  className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none resize-none"
-                />
-              </div>
-              {config.projectTypeId &&
-                typeDetailFields.map((field, idx) => (
-                  <div
-                    key={field.id}
-                    className={`px-3 py-2.5 ${
-                      idx < typeDetailFields.length - 1 ? 'border-b border-rule' : ''
-                    }`}
-                  >
-                    <label className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">
-                      {field.label}
-                    </label>
-                    {field.input === 'chips' && field.options ? (
-                      <div
-                        className="flex flex-wrap gap-1.5 pt-0.5"
-                        role="group"
-                        aria-label={field.label}
-                      >
-                        {field.options
-                          .filter((opt) => opt.value !== '')
-                          .map((opt) => {
-                            const selected = (typeDetails[field.id] ?? '') === opt.value;
-                            return (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                aria-pressed={selected}
-                                onClick={() =>
-                                  onSetTypeDetail(field.id, selected ? '' : opt.value)
-                                }
-                                className={`px-2 py-1 text-[10px] font-semibold leading-tight tracking-tight rounded-sm border transition-colors text-left ${
-                                  selected
-                                    ? 'bg-ink text-surface border-ink'
-                                    : 'bg-surface text-ink-secondary border-rule hover:bg-surface-raised hover:border-neutral-300'
-                                }`}
-                              >
-                                {opt.label}
-                              </button>
-                            );
-                          })}
+                <div className="min-w-0 flex-1 w-full">
+                  {selectedProjectType ? (
+                    <>
+                      <div className="flex items-center justify-between gap-2 min-w-0 w-full">
+                        <span className="text-[13px] font-semibold text-ink leading-tight truncate min-w-0">
+                          {selectedProjectType.name}
+                        </span>
+                        <span aria-hidden className="shrink-0">
+                          <ComplexityDots filled={selectedProjectType.tier} size="pill" />
+                        </span>
                       </div>
-                    ) : field.input === 'select' && field.options ? (
-                      <select
-                        value={typeDetails[field.id] ?? ''}
-                        onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
-                        className="w-full bg-transparent text-sm text-ink focus:outline-none cursor-pointer border border-rule rounded-sm px-1 py-0.5"
+                      <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
+                        {selectedProjectType.tagline}
+                      </p>
+                    </>
+                  ) : (
+                    <span className="text-[12px] font-semibold text-ink-faint">
+                      Select project type…
+                    </span>
+                  )}
+                </div>
+                <svg
+                  className={`h-4 w-4 shrink-0 text-ink-muted mt-0.5 transition-transform duration-150 ${
+                    projectTypeMenuOpen ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {projectTypeMenuOpen && (
+                <div
+                  className="absolute z-50 left-0 right-0 mt-1 max-h-[min(22rem,65vh)] overflow-y-auto rounded-lg border border-rule bg-surface shadow-md py-1"
+                  role="listbox"
+                  aria-label="Project types"
+                >
+                  {projectTypes.map((type) => {
+                    const isSelected = type.id === config.projectTypeId;
+                    return (
+                      <button
+                        key={type.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          onSetProjectType(type.id);
+                          setProjectTypeMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 border-b border-rule last:border-b-0 transition-colors ${
+                          isSelected ? 'bg-surface-raised' : 'hover:bg-surface-raised'
+                        }`}
                       >
-                        {field.options.map((opt) => (
-                          <option key={opt.value || 'placeholder'} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : field.multiline ? (
-                      <textarea
-                        value={typeDetails[field.id] ?? ''}
-                        onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
-                        placeholder={field.placeholder}
-                        rows={field.rows ?? 2}
-                        className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none resize-none"
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        value={typeDetails[field.id] ?? ''}
-                        onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
-                        placeholder={field.placeholder}
-                        className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
-                      />
-                    )}
-                  </div>
-                ))}
+                        <div className="flex items-center justify-between gap-2 min-w-0 w-full">
+                          <span className={`text-[13px] font-semibold leading-tight truncate min-w-0 ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
+                            {type.name}
+                          </span>
+                          <span aria-hidden className="shrink-0">
+                            <ComplexityDots filled={type.tier} size="pill" />
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-ink-muted leading-snug mt-1 pl-0">
+                          {type.tagline}
+                        </p>
+                      </button>
+                    );
+                  })}
+                  {config.projectTypeId && (
+                    <div className="border-t border-rule px-2 py-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSetProjectType('');
+                          setProjectTypeMenuOpen(false);
+                        }}
+                        className="w-full text-center py-1.5 text-[9px] font-bold uppercase tracking-wider text-ink-faint hover:text-accent transition-colors"
+                      >
+                        Clear selection
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Project type — show tiles only when none selected, otherwise compact display */}
-            {config.projectTypeId ? (
-              <div className="border border-rule bg-surface">
-                <div className="px-3 py-1.5 bg-surface-raised border-b border-rule flex items-center justify-between">
-                  <span className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">
-                    Type
-                  </span>
+            {config.projectTypeId && (
+              <div className="mt-3 pt-3 border-t border-rule space-y-3">
+                <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] px-0.5">
+                  AI & tooling
+                </p>
+                {/* Tool dropdown — above model list */}
+                <div className="relative" ref={toolMenuRef}>
                   <button
-                    onClick={() => onSetProjectType('')}
-                    className="text-[9px] font-bold text-ink-faint uppercase tracking-wider hover:text-accent transition-colors"
+                    type="button"
+                    onClick={() => setToolMenuOpen((o) => !o)}
+                    aria-expanded={toolMenuOpen}
+                    aria-haspopup="listbox"
+                    aria-label="AI coding tool"
+                    className="w-full flex items-start gap-2 px-3 py-2.5 text-left border border-rule/40 rounded-lg bg-white/35 hover:bg-white/50 backdrop-blur-sm transition-colors"
                   >
-                    Change
-                  </button>
-                </div>
-                <div className="px-3 py-2.5 flex items-center gap-2">
-                  <ComplexityDots filled={tier} size="pill" aria-hidden />
-                  <span className="text-sm font-bold text-ink">
-                    {projectTypes.find((t) => t.id === config.projectTypeId)?.name}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className="px-1 mb-1.5">
-                  <span className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">
-                    Type
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-px bg-rule border border-rule">
-                  {projectTypes.map((type) => (
-                    <button
-                      key={type.id}
-                      onClick={() => onSetProjectType(type.id)}
-                      className="text-left px-3 py-3.5 bg-surface hover:bg-surface-raised transition-colors"
+                    <div className="min-w-0 flex-1">
+                      {selectedTool ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-semibold text-ink leading-tight truncate">
+                              {selectedTool.name}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
+                            {selectedTool.description}
+                          </p>
+                        </>
+                      ) : (
+                        <span className="text-[12px] font-semibold text-ink-faint">
+                          Select tool…
+                        </span>
+                      )}
+                    </div>
+                    <svg
+                      className={`h-4 w-4 shrink-0 text-ink-muted mt-0.5 transition-transform duration-150 ${
+                        toolMenuOpen ? 'rotate-180' : ''
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      aria-hidden
                     >
-                      <div aria-hidden className="mb-2">
-                        <ComplexityDots filled={type.tier} size="pill" />
-                      </div>
-                      <div className="text-[11px] font-bold leading-tight text-ink-secondary">
-                        {type.name}
-                      </div>
-                      <div className="text-[9px] mt-1 leading-snug text-ink-muted">
-                        {type.tagline}
-                      </div>
-                    </button>
-                  ))}
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {toolMenuOpen && (
+                    <div
+                      className="absolute z-50 left-0 right-0 mt-1 max-h-[min(22rem,65vh)] overflow-y-auto rounded-lg border border-rule bg-surface shadow-md py-1"
+                      role="listbox"
+                      aria-label="Tools"
+                    >
+                      {tools.map((t) => {
+                        const isSelected = t.id === selectedToolId;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              onSetTool(t.id);
+                              setToolMenuOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2.5 border-b border-rule last:border-b-0 transition-colors ${
+                              isSelected ? 'bg-surface-raised' : 'hover:bg-surface-raised'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[13px] font-semibold leading-tight flex-1 truncate ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
+                                {t.name}
+                              </span>
+                              {t.url && (
+                                <a
+                                  href={t.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-[9px] text-accent hover:underline shrink-0"
+                                >
+                                  ↗
+                                </a>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
+                              {t.reasoning}
+                            </p>
+                          </button>
+                        );
+                      })}
+                      {selectedToolId && (
+                        <div className="border-t border-rule px-2 py-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSetTool(null);
+                              setToolMenuOpen(false);
+                            }}
+                            className="w-full text-center py-1.5 text-[9px] font-bold uppercase tracking-wider text-ink-faint hover:text-accent transition-colors"
+                          >
+                            Clear selection
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Model selector — single pick, options depend on tool */}
+                <div className="border border-rule border-b-0 bg-surface">
+                  <div className="px-3 py-1.5 bg-surface-raised border-b border-rule">
+                    <span className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">Model</span>
+                  </div>
+                  {models.length === 0 ? (
+                    <p className="px-3 py-3 text-[9px] text-ink-faint leading-snug">
+                      Choose a tool to see compatible models.
+                    </p>
+                  ) : (
+                    models.map((m) => {
+                      const isChosen = config.selectedModelId === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => onSetModel(m.id)}
+                          className={`w-full text-left px-3 py-2 border-b border-rule last:border-b-0 transition-colors ${
+                            isChosen ? 'bg-surface-raised' : 'hover:bg-surface-raised'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`h-2.5 w-2.5 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                              isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
+                            }`}>
+                              {isChosen && <div className="h-1 w-1 rounded-full bg-surface" />}
+                            </div>
+                            <span className={`text-[13px] font-semibold flex-1 truncate ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>{m.name}</span>
+                            <span className="text-[10px] text-ink-faint">{m.provider}</span>
+                          </div>
+                          <p className={`text-[11px] leading-snug mt-0.5 ml-[18px] line-clamp-2 ${
+                            isChosen ? 'text-ink-muted' : 'text-ink-faint'
+                          }`}>
+                            {m.reasoning}
+                          </p>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ── BUILDING BLOCKS ─────────────────────── */}
+        {/* ── DETAILS ─────────────────────────────── */}
         {config.projectTypeId && (
           <>
             <SectionHeader
-              label="Building Blocks"
+              label="Details"
+              open={openSections.has('project')}
+              onToggle={() => toggle('project')}
+              sectionRef={(el) => { sectionRefs.current.project = el; }}
+            />
+            {openSections.has('project') && (
+              <div className="px-3 pb-3 animate-fade-in">
+                <div className="border border-rule border-b-0 bg-surface">
+                  <div className="px-3 py-2.5 border-b border-rule">
+                    <label className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={config.name}
+                      onChange={(e) => onSetName(e.target.value)}
+                      placeholder="Untitled"
+                      className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                    />
+                  </div>
+                  <div
+                    className={`px-3 py-2.5 ${
+                      typeDetailFields.length > 0 ? 'border-b border-rule' : ''
+                    }`}
+                  >
+                    <label className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">Description</label>
+                    <textarea
+                      value={config.projectDescription}
+                      onChange={(e) => onSetDescription(e.target.value)}
+                      placeholder="What does it do?"
+                      rows={2}
+                      className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none resize-none"
+                    />
+                  </div>
+                  {typeDetailFields.map((field, idx) => (
+                    <div
+                      key={field.id}
+                      className={`px-3 py-2.5 ${
+                        idx < typeDetailFields.length - 1 ? 'border-b border-rule' : ''
+                      }`}
+                    >
+                      <label className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">
+                        {field.label}
+                      </label>
+                      {field.input === 'chips' && field.options ? (
+                        <div
+                          className="flex flex-wrap gap-1.5 pt-0.5"
+                          role="group"
+                          aria-label={field.label}
+                        >
+                          {field.options
+                            .filter((opt) => opt.value !== '')
+                            .map((opt) => {
+                              const selected = (typeDetails[field.id] ?? '') === opt.value;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  aria-pressed={selected}
+                                  onClick={() =>
+                                    onSetTypeDetail(field.id, selected ? '' : opt.value)
+                                  }
+                                  className={`px-2 py-1 text-[10px] font-semibold leading-tight tracking-tight rounded-sm border transition-colors text-left ${
+                                    selected
+                                      ? 'bg-surface-raised text-ink border-ink/30'
+                                      : 'bg-surface text-ink-secondary border-rule hover:bg-surface-raised hover:border-neutral-300'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      ) : field.input === 'select' && field.options ? (
+                        <select
+                          value={typeDetails[field.id] ?? ''}
+                          onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
+                          className="w-full bg-transparent text-sm text-ink focus:outline-none cursor-pointer border border-rule rounded-sm px-1 py-0.5"
+                        >
+                          {field.options.map((opt) => (
+                            <option key={opt.value || 'placeholder'} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : field.multiline ? (
+                        <textarea
+                          value={typeDetails[field.id] ?? ''}
+                          onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
+                          placeholder={field.placeholder}
+                          rows={field.rows ?? 2}
+                          className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none resize-none"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={typeDetails[field.id] ?? ''}
+                          onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
+                          placeholder={field.placeholder}
+                          className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── BLOCKS ──────────────────────────────── */}
+        {config.projectTypeId && (
+          <>
+            <SectionHeader
+              label="Blocks"
               count={config.selectedBlockIds.length}
               open={openSections.has('blocks')}
               onToggle={() => toggle('blocks')}
@@ -275,52 +606,40 @@ export function Sidebar({
               <div className="px-3 pb-3 animate-fade-in space-y-3">
                 {/* Included blocks (required + user-added) */}
                 {includedBlocks.length > 0 && (
-                  <div className="grid grid-cols-2 gap-px bg-rule border border-rule">
+                  <div
+                    className={`flex flex-col gap-px bg-rule border border-rule ${
+                      recommendedBlocks.length === 0 ? 'border-b-0' : ''
+                    }`}
+                  >
                     {includedBlocks.map((block) => {
                       const status = block.statusForTier(tier);
                       const isRequired = status === 'required';
                       const isExpanded = expandedBlockId === block.id;
-                      const chosenOption = techOptions.find(
-                        (o) => o.id === config.techChoices[block.id],
-                      );
-
+                      const techForPreview =
+                        techOptions.find((o) => o.id === config.techChoices[block.id]) ??
+                        techOptions.find((o) => o.blockId === block.id && o.isDefault);
+                      const tileDescId = `block-desc-${block.id}`;
                       return (
-                        <div
-                          key={block.id}
-                          className={`bg-surface flex flex-col transition-colors ${
-                            isExpanded ? 'col-span-2' : ''
-                          }`}
-                        >
-                          <div className={isExpanded ? '' : 'aspect-square'}>
-                            <button
-                              onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
-                              className="w-full h-full text-left p-2.5 hover:bg-surface-raised transition-colors flex flex-col"
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className={`text-[9px] font-bold uppercase tracking-wider ${
-                                  isRequired ? 'text-ink-muted' : 'text-ink-faint'
-                                }`}>
-                                  {isRequired ? 'Required' : 'Added'}
-                                </span>
-                                {isRequired ? (
-                                  <span
-                                    className="shrink-0 h-3 w-3 text-ink-faint"
-                                    title="Required"
-                                    aria-label="Required"
-                                    role="img"
-                                  >
-                                    <svg className="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                  </span>
-                                ) : (
+                        <div key={block.id} className="flex flex-col gap-px min-w-0 w-full">
+                          <div className="group relative bg-surface flex flex-col min-w-0 w-full">
+                            <span id={tileDescId} className="sr-only">
+                              {block.summary}
+                            </span>
+                            <div className="w-full">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
+                                aria-describedby={tileDescId}
+                                className="w-full min-h-[60px] text-left px-3 py-3 pr-9 hover:bg-surface-raised transition-colors flex items-center gap-2.5 relative"
+                              >
+                                {!isRequired && (
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       onToggleBlock(block.id);
                                     }}
-                                    className="shrink-0 h-3.5 w-3.5 text-ink-faint hover:text-accent transition-colors"
+                                    className="absolute top-2 right-2 h-3.5 w-3.5 text-ink-faint hover:text-accent transition-colors z-10"
                                     aria-label="Remove from project"
                                     title="Remove"
                                   >
@@ -329,78 +648,38 @@ export function Sidebar({
                                     </svg>
                                   </button>
                                 )}
-                              </div>
-                              <div className="text-[11px] font-bold text-ink leading-tight">
-                                {block.name}
-                              </div>
-                              {chosenOption && (
-                                <div className="text-[9px] text-ink-muted mt-0.5">
-                                  {chosenOption.name}
-                                </div>
-                              )}
-                              {!chosenOption && (
-                                <div className="text-[9px] text-ink-faint mt-0.5 leading-snug line-clamp-2">
-                                  {block.summary}
-                                </div>
-                              )}
-                            </button>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="border-t border-rule bg-surface-raised animate-fade-in">
-                              <div className="px-2.5 py-2.5 space-y-2">
-                                <p className="text-[10px] text-ink-secondary leading-relaxed">{block.explanation}</p>
-                                <div>
-                                  <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-0.5">Why</p>
-                                  <p className="text-[10px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
-                                </div>
-                              </div>
-                              {block.techOptionIds.length > 0 && (() => {
-                                const options = techOptions.filter((o) => block.techOptionIds.includes(o.id));
-                                const chosenId = config.techChoices[block.id];
-                                return (
-                                  <div className="border-t border-rule">
-                                    <div className="px-2.5 py-1.5">
-                                      <span className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em]">Technology</span>
-                                    </div>
-                                    {options.map((option) => {
-                                      const isChosen = chosenId === option.id;
-                                      return (
-                                        <button
-                                          key={option.id}
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            onSetTechChoice(block.id, option.id);
-                                          }}
-                                          className={`w-full flex items-start gap-2 px-2.5 py-1.5 text-left transition-colors ${
-                                            isChosen ? 'bg-ink text-surface' : 'hover:bg-surface'
-                                          }`}
-                                        >
-                                          <div className={`mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full border-2 flex items-center justify-center ${
-                                            isChosen ? 'border-surface' : 'border-ink-faint'
-                                          }`}>
-                                            {isChosen && <div className="h-1 w-1 rounded-full bg-surface" />}
-                                          </div>
-                                          <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-1.5">
-                                              <span className="text-[10px] font-bold">{option.name}</span>
-                                              {option.isDefault && (
-                                                <span className={`text-[8px] font-bold uppercase tracking-wider ${
-                                                  isChosen ? 'text-surface/50' : 'text-accent'
-                                                }`}>Default</span>
-                                              )}
-                                            </div>
-                                            <p className={`text-[9px] leading-snug mt-0.5 line-clamp-2 ${
-                                              isChosen ? 'text-surface/60' : 'text-ink-muted'
-                                            }`}>{option.description}</p>
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
+                                <span className="shrink-0 text-ink-muted flex items-center justify-center" aria-hidden>
+                                  <BlockOcticon blockId={block.id} size={18} />
+                                </span>
+                                <div className="flex flex-col gap-0.5 min-w-0 flex-1 text-left">
+                                  <div className="text-[12px] font-semibold text-ink leading-snug line-clamp-2 w-full pr-1">
+                                    {block.name}
                                   </div>
-                                );
-                              })()}
+                                  {techForPreview ? (
+                                    <div className="text-[11px] font-semibold text-ink-secondary leading-snug line-clamp-2 w-full pr-1">
+                                      {techForPreview.name}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </button>
+                            </div>
+                            {!isExpanded && (
+                              <div
+                                role="tooltip"
+                                className="pointer-events-none absolute z-[70] left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[9px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+                              >
+                                {block.summary}
+                              </div>
+                            )}
+                          </div>
+                          {isExpanded && (
+                            <div className="min-w-0 w-full flex flex-col">
+                              <IncludedBlockExpandedPanel
+                                block={block}
+                                config={config}
+                                onSetTechChoice={onSetTechChoice}
+                                onToggleLibrary={onToggleLibrary}
+                              />
                             </div>
                           )}
                         </div>
@@ -412,39 +691,49 @@ export function Sidebar({
                 {/* Recommended / optional blocks not yet added */}
                 {recommendedBlocks.length > 0 && (
                   <div>
-                    <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.15em] mb-1.5">
-                      Recommended
-                    </p>
-                    <div className="grid grid-cols-2 gap-px bg-rule border border-rule">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.15em]">
+                        Recommended
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => recommendedBlocks.forEach((b) => onToggleBlock(b.id))}
+                        className="text-[8px] font-bold text-ink-faint uppercase tracking-wider hover:text-accent transition-colors"
+                      >
+                        Add all
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-px bg-rule border border-rule border-b-0">
                       {recommendedBlocks.map((block) => {
-                        const status = block.statusForTier(tier);
                         const isExpanded = expandedBlockId === block.id;
-
+                        const techForPreview =
+                          techOptions.find((o) => o.id === config.techChoices[block.id]) ??
+                          techOptions.find((o) => o.blockId === block.id && o.isDefault);
+                        const tileDescId = `block-desc-rec-${block.id}`;
                         return (
-                          <div
-                            key={block.id}
-                            className={`bg-surface flex flex-col transition-colors opacity-60 hover:opacity-100 ${
-                              isExpanded ? 'col-span-2 opacity-100' : ''
-                            }`}
-                          >
-                            <div className={isExpanded ? '' : 'aspect-square'}>
-                              <button
-                                onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
-                                className="w-full h-full text-left p-2.5 hover:bg-surface-raised transition-colors flex flex-col"
-                              >
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className={`text-[9px] font-bold uppercase tracking-wider ${
-                                    status === 'recommended' ? 'text-accent' : 'text-ink-faint'
-                                  }`}>
-                                    {status === 'recommended' ? 'Rec' : 'Opt'}
-                                  </span>
+                          <div key={block.id} className="flex flex-col gap-px min-w-0 w-full">
+                            <div
+                              className={`group relative bg-surface flex flex-col min-w-0 w-full transition-opacity ${
+                                isExpanded ? 'opacity-100' : 'opacity-60 hover:opacity-100'
+                              }`}
+                            >
+                              <span id={tileDescId} className="sr-only">
+                                {block.summary}
+                              </span>
+                              <div className="w-full">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
+                                  aria-describedby={tileDescId}
+                                  className="w-full min-h-[60px] text-left px-3 py-3 pr-10 hover:bg-surface-raised transition-colors flex items-center gap-2.5 relative"
+                                >
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       onToggleBlock(block.id);
                                     }}
-                                    className="shrink-0 h-4 w-4 text-ink-faint hover:text-ink transition-colors"
+                                    className="absolute top-2 right-2 h-4 w-4 text-ink-faint hover:text-ink transition-colors z-10"
                                     aria-label={`Add ${block.name} to project`}
                                     title="Add to project"
                                   >
@@ -452,18 +741,32 @@ export function Sidebar({
                                       <path strokeLinecap="round" d="M12 5v14M5 12h14" />
                                     </svg>
                                   </button>
-                                </div>
-                                <div className="text-[11px] font-bold text-ink leading-tight">
-                                  {block.name}
-                                </div>
-                                <div className="text-[9px] text-ink-faint mt-0.5 leading-snug line-clamp-2">
+                                  <span className="shrink-0 text-ink-muted flex items-center justify-center" aria-hidden>
+                                    <BlockOcticon blockId={block.id} size={18} />
+                                  </span>
+                                  <div className="flex flex-col gap-0.5 min-w-0 flex-1 text-left">
+                                    <div className="text-[12px] font-semibold text-ink leading-snug line-clamp-2 w-full pr-1">
+                                      {block.name}
+                                    </div>
+                                    {techForPreview ? (
+                                      <div className="text-[11px] font-semibold text-ink-secondary leading-snug line-clamp-2 w-full pr-1">
+                                        {techForPreview.name}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </button>
+                              </div>
+                              {!isExpanded && (
+                                <div
+                                  role="tooltip"
+                                  className="pointer-events-none absolute z-[70] left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[9px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+                                >
                                   {block.summary}
                                 </div>
-                              </button>
+                              )}
                             </div>
-
                             {isExpanded && (
-                              <div className="border-t border-rule px-2.5 py-2.5 bg-surface-raised space-y-2 animate-fade-in">
+                              <div className="min-w-0 w-full border-t border-rule px-2.5 py-2.5 bg-surface-raised space-y-2 animate-fade-in">
                                 <p className="text-[10px] text-ink-secondary leading-relaxed">{block.explanation}</p>
                                 <div>
                                   <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-0.5">Why</p>
@@ -494,106 +797,283 @@ export function Sidebar({
 
         {/* Tech Stack section removed — tech choices are inline in each block's expanded view */}
 
-        {/* ── AI & TOOLS ─────────────────────────── */}
+        {/* ── RESOURCES ─────────────────────────────── */}
         {config.projectTypeId && (
           <>
             <SectionHeader
-              label="AI & Tools"
-              open={openSections.has('ai')}
-              onToggle={() => toggle('ai')}
-              sectionRef={(el) => { sectionRefs.current.ai = el; }}
+              label="Resources"
+              count={(config.resources ?? []).length}
+              open={openSections.has('resources')}
+              onToggle={() => toggle('resources')}
+              sectionRef={(el) => { sectionRefs.current.resources = el; }}
             />
-            {openSections.has('ai') && (
-              <div className="px-3 pb-3 space-y-3 animate-fade-in">
-                {/* Model selector — single pick */}
-                <div className="border border-rule bg-surface">
-                  <div className="px-3 py-1.5 bg-surface-raised border-b border-rule">
-                    <span className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">Model</span>
-                  </div>
-                  {models.map((m) => {
-                    const isChosen = config.selectedModelId === m.id;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => onSetModel(m.id)}
-                        className={`w-full text-left px-3 py-2 border-b border-rule last:border-b-0 transition-colors ${
-                          isChosen ? 'bg-ink text-surface' : 'hover:bg-surface-raised'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={`h-2.5 w-2.5 shrink-0 rounded-full border-2 flex items-center justify-center ${
-                            isChosen ? 'border-surface' : 'border-ink-faint'
-                          }`}>
-                            {isChosen && <div className="h-1 w-1 rounded-full bg-surface" />}
-                          </div>
-                          <span className="text-[11px] font-bold flex-1 truncate">{m.name}</span>
-                          <span className={`text-[9px] ${isChosen ? 'text-surface/50' : 'text-ink-faint'}`}>{m.provider}</span>
-                        </div>
-                        <p className={`text-[9px] leading-snug mt-0.5 ml-[18px] line-clamp-2 ${
-                          isChosen ? 'text-surface/60' : 'text-ink-muted'
-                        }`}>
-                          {m.reasoning}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
+            {openSections.has('resources') && (
+              <div className="px-3 pb-3 animate-fade-in min-w-0 max-w-full flex-1 min-h-0 flex flex-col">
+                <ResourcesPanel
+                  variant="sidebar"
+                  resources={config.resources ?? []}
+                  onAddUrl={onAddResourceUrl}
+                  onAddFile={onAddResourceFile}
+                  onRemove={onRemoveResource}
+                />
+              </div>
+            )}
+          </>
+        )}
 
-                {/* Tool selector — multi pick */}
-                <div className="border border-rule bg-surface">
-                  <div className="px-3 py-1.5 bg-surface-raised border-b border-rule">
-                    <span className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">Tools</span>
+        {/* ── INTEGRATIONS ─────────────────────────── */}
+        {config.projectTypeId && visibleIntegrations.length > 0 && (
+          <>
+            <SectionHeader
+              label="Integrations"
+              count={config.selectedIntegrationIds.length}
+              open={openSections.has('integrations')}
+              onToggle={() => toggle('integrations')}
+              sectionRef={(el) => { sectionRefs.current.integrations = el; }}
+            />
+            {openSections.has('integrations') && (
+              <div className="px-3 pb-3 space-y-2 animate-fade-in">
+                <p className="text-[9px] text-ink-muted leading-snug px-0.5">
+                  Suggested for your project type and description. Skills link to the{' '}
+                  <a
+                    href="https://skills.sh"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:underline font-semibold"
+                  >
+                    skills.sh
+                  </a>{' '}
+                  directory.
+                </p>
+                <div className="border border-rule bg-surface overflow-hidden">
+                  <div
+                    role="tablist"
+                    aria-label="Integration categories"
+                    className="flex border-b border-rule bg-surface-raised"
+                  >
+                    {INTEGRATION_CATEGORY_ORDER.map((cat) => {
+                      const items = integrationsByCategory.get(cat) ?? [];
+                      if (items.length === 0) return null;
+                      const selectedHere = items.filter((i) =>
+                        config.selectedIntegrationIds.includes(i.id),
+                      ).length;
+                      const isActive = integrationTab === cat;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          role="tab"
+                          aria-selected={isActive}
+                          id={`integration-tab-${cat}`}
+                          aria-controls={`integration-panel-${cat}`}
+                          onClick={() => setIntegrationTab(cat)}
+                          className={`flex-1 min-w-0 px-1.5 py-2 text-[8px] font-bold uppercase tracking-[0.08em] transition-colors border-b-2 -mb-px ${
+                            isActive
+                              ? 'text-ink border-ink bg-surface'
+                              : 'text-ink-muted border-transparent hover:text-ink-secondary hover:bg-surface/80'
+                          }`}
+                        >
+                          <span className="block truncate text-center leading-tight">
+                            {INTEGRATION_CATEGORY_LABELS[cat]}
+                            {selectedHere > 0 ? (
+                              <span className="font-mono font-normal text-[9px] normal-case tracking-normal text-accent">
+                                {' '}
+                                {selectedHere}
+                              </span>
+                            ) : null}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  {tools.map((t) => {
-                    const isChosen = config.selectedToolIds.includes(t.id);
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => onToggleTool(t.id)}
-                        className={`w-full text-left px-3 py-2 border-b border-rule last:border-b-0 transition-colors ${
-                          isChosen ? 'bg-ink text-surface' : 'hover:bg-surface-raised'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={`h-3 w-3 shrink-0 border flex items-center justify-center transition-colors ${
-                            isChosen ? 'border-surface/50 bg-surface/20' : 'border-ink-faint'
-                          }`}>
-                            {isChosen && (
-                              <svg className="h-2 w-2 text-surface" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} aria-hidden>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
+                  <div
+                    role="tabpanel"
+                    id={`integration-panel-${integrationTab}`}
+                    aria-labelledby={`integration-tab-${integrationTab}`}
+                    className="max-h-[min(20rem,45vh)] overflow-y-auto"
+                  >
+                    {(integrationsByCategory.get(integrationTab) ?? []).map((item) => {
+                      const isChosen = config.selectedIntegrationIds.includes(item.id);
+                      const href = item.skillsShPath ? skillsShUrl(item.skillsShPath) : item.url;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => onToggleIntegration(item.id)}
+                          className={`group relative w-full text-left px-3 py-2 border-b border-rule last:border-b-0 transition-colors ${
+                            isChosen ? 'bg-surface-raised' : 'hover:bg-surface-raised'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className={`mt-0.5 h-3 w-3 shrink-0 border flex items-center justify-center transition-colors ${
+                              isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
+                            }`}>
+                              {isChosen && (
+                                <svg className="h-2 w-2 text-surface" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} aria-hidden>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1 pr-6">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-[11px] font-bold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>
+                                  {item.name}
+                                </span>
+                              </div>
+                              <p className={`text-[9px] leading-snug mt-0.5 line-clamp-2 ${
+                                isChosen ? 'text-ink-muted' : 'text-ink-faint'
+                              }`}>
+                                {item.description}
+                              </p>
+                              {item.installHint && (
+                                <p className="text-[8px] text-ink-faint mt-1 font-mono leading-tight">
+                                  {item.installHint}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-[11px] font-bold flex-1 truncate">{t.name}</span>
-                          {t.url && (
+                          {href && (
                             <a
-                              href={t.url}
+                              href={href}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={(e) => e.stopPropagation()}
-                              className={`text-[9px] ${isChosen ? 'text-surface/50 hover:text-surface/80' : 'text-accent hover:underline'}`}
+                              aria-label={`${item.name} — open link in new tab`}
+                              className="absolute top-2 right-2 z-10 text-[9px] font-semibold text-accent hover:underline opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
                             >
                               ↗
                             </a>
                           )}
-                        </div>
-                        <p className={`text-[9px] leading-snug mt-0.5 ml-5 line-clamp-2 ${
-                          isChosen ? 'text-surface/60' : 'text-ink-muted'
-                        }`}>
-                          {t.reasoning}
-                        </p>
-                      </button>
-                    );
-                  })}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
           </>
         )}
+            <div className="flex-1 grow basis-0 min-h-0 shrink-0" aria-hidden />
+          </div>
+        </div>
       </div>
     </aside>
+  );
+}
+
+function IncludedBlockExpandedPanel({
+  block,
+  config,
+  onSetTechChoice,
+  onToggleLibrary,
+}: {
+  block: Block;
+  config: ProjectConfig;
+  onSetTechChoice: (blockId: string, optionId: string) => void;
+  onToggleLibrary: (libraryId: string) => void;
+}) {
+  return (
+    <div className="border-t border-rule bg-surface-raised animate-fade-in">
+      <div className="px-2.5 py-2.5 space-y-2">
+        <p className="text-[10px] text-ink-secondary leading-relaxed">{block.explanation}</p>
+        <div>
+          <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-0.5">Why</p>
+          <p className="text-[10px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
+        </div>
+      </div>
+      {block.techOptionIds.length > 0 && (() => {
+        const options = techOptions.filter((o) => block.techOptionIds.includes(o.id));
+        const chosenId = config.techChoices[block.id];
+        return (
+          <div className="border-t border-rule">
+            <div className="px-2.5 py-1.5">
+              <span className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em]">Technology</span>
+            </div>
+            {options.map((option) => {
+              const isChosen = chosenId === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSetTechChoice(block.id, option.id);
+                  }}
+                  className={`w-full flex items-start gap-2 px-2.5 py-1.5 text-left transition-colors ${
+                    isChosen ? 'bg-surface' : 'hover:bg-surface'
+                  }`}
+                >
+                  <div className={`mt-[3px] h-2.5 w-2.5 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                    isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
+                  }`}>
+                    {isChosen && <div className="h-1 w-1 rounded-full bg-surface" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[10px] font-bold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>{option.name}</span>
+                      {option.isDefault && (
+                        <span className="text-[8px] font-bold uppercase tracking-wider text-accent">Default</span>
+                      )}
+                    </div>
+                    <p className={`text-[9px] leading-snug mt-0.5 line-clamp-2 ${
+                      isChosen ? 'text-ink-muted' : 'text-ink-faint'
+                    }`}>{option.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
+      {(block.libraryIds?.length ?? 0) > 0 && (() => {
+        const libs = blockLibraries.filter((l) => block.libraryIds!.includes(l.id));
+        const categories = [...new Set(libs.map((l) => l.category))];
+        return (
+          <div className="border-t border-rule">
+            <div className="px-2.5 py-1.5">
+              <span className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em]">Libraries</span>
+            </div>
+            <div className="px-2.5 pb-2 space-y-2">
+              {categories.map((cat) => (
+                <div key={cat}>
+                  <p className="text-[8px] font-semibold text-ink-faint uppercase tracking-wider mb-1">{cat}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {libs.filter((l) => l.category === cat).map((lib) => {
+                      const isActive = config.selectedLibraryIds.includes(lib.id);
+                      return (
+                        <button
+                          key={lib.id}
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onToggleLibrary(lib.id); }}
+                          title={lib.description}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold rounded-sm border transition-colors ${
+                            isActive
+                              ? 'bg-surface text-ink border-ink/30'
+                              : 'bg-transparent text-ink-faint border-rule hover:text-ink-secondary hover:border-rule-strong'
+                          }`}
+                        >
+                          {!isActive && (
+                            <svg className="h-2.5 w-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                            </svg>
+                          )}
+                          {lib.name}
+                          {isActive && (
+                            <svg className="h-2 w-2 shrink-0 text-ink-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+    </div>
   );
 }
 
@@ -603,34 +1083,49 @@ function SectionHeader({
   open,
   onToggle,
   sectionRef,
+  suppressTopBorder,
 }: {
   label: string;
   count?: number;
   open: boolean;
   onToggle: () => void;
   sectionRef?: (el: HTMLElement | null) => void;
+  /** Avoid stacking with the masthead’s bottom border (first section only). */
+  suppressTopBorder?: boolean;
 }) {
   return (
-    <button
-      ref={sectionRef as React.Ref<HTMLButtonElement>}
+    <div
+      ref={sectionRef}
+      role="button"
+      tabIndex={0}
       onClick={onToggle}
-      className="w-full flex items-center gap-2 px-5 py-2 text-left border-t border-rule hover:bg-surface-raised transition-colors"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      aria-expanded={open}
+      className={`w-full shrink-0 flex items-center gap-2.5 px-5 py-3.5 min-h-[44px] text-left hover:bg-surface-raised transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+        suppressTopBorder ? '' : 'border-t border-rule'
+      }`}
     >
-      <svg
-        className={`h-2.5 w-2.5 text-ink-muted transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}
-      >
-        <path strokeLinecap="square" d="M9 5l7 7-7 7" />
-      </svg>
-      <span className="text-[10px] font-bold text-ink uppercase tracking-[0.15em] flex-1">
+      <h4 className="text-[15px] font-semibold text-ink tracking-tight flex-1 leading-tight m-0">
         {label}
-      </span>
+      </h4>
       {count !== undefined && (
-        <span className="text-[10px] text-ink-muted font-semibold tabular-nums">
+        <span className="text-[11px] text-ink-muted font-semibold tabular-nums">
           {count}
         </span>
       )}
-    </button>
+      <svg
+        className={`h-3 w-3 shrink-0 text-ink-muted transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}
+        aria-hidden={true}
+      >
+        <path strokeLinecap="square" d="M9 5l7 7-7 7" />
+      </svg>
+    </div>
   );
 }
 

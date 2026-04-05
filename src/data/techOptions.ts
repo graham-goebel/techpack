@@ -44,6 +44,41 @@ export const techOptions: TechOption[] = [
     isDefault: false,
   },
 
+  // ── Accessibility ───────────────────────────────────
+  {
+    id: 'axe-core',
+    blockId: 'accessibility',
+    name: 'axe-core',
+    description:
+      'The industry-standard accessibility testing engine. Run automated WCAG audits in the browser, in tests, or in CI to catch violations early.',
+    pros: ['Comprehensive rule set', 'Integrates with testing frameworks', 'Zero false positives guarantee'],
+    cons: ['Automated tests catch ~30-40% of issues', 'Needs manual review too'],
+    isDefault: true,
+    url: 'https://www.deque.com/axe',
+  },
+  {
+    id: 'eslint-a11y',
+    blockId: 'accessibility',
+    name: 'eslint-plugin-jsx-a11y',
+    description:
+      'ESLint plugin that catches accessibility issues in JSX at development time — missing alt text, invalid ARIA attributes, missing labels, and more.',
+    pros: ['Catches issues as you code', 'Zero runtime cost', 'Easy to set up'],
+    cons: ['JSX/React only', 'Can\'t catch dynamic issues'],
+    isDefault: true,
+    url: 'https://github.com/jsx-eslint/eslint-plugin-jsx-a11y',
+  },
+  {
+    id: 'pa11y',
+    blockId: 'accessibility',
+    name: 'Pa11y',
+    description:
+      'Command-line accessibility testing tool that runs against live URLs. Great for CI pipelines to gate deployments on WCAG compliance.',
+    pros: ['CI-friendly', 'Tests real rendered pages', 'Configurable thresholds'],
+    cons: ['Slower than static analysis', 'Needs a running server to test against'],
+    isDefault: false,
+    url: 'https://pa11y.org',
+  },
+
   // ── Functionality / Framework ─────────────────────
   {
     id: 'react',

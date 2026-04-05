@@ -1,4 +1,4 @@
-import type { ModelRecommendation, ToolRecommendation } from '../types';
+import type { ModelRecommendation, Tier, ToolRecommendation } from '../types';
 
 export const modelRecommendations: ModelRecommendation[] = [
   {
@@ -91,11 +91,32 @@ export const modelRecommendations: ModelRecommendation[] = [
   },
 ];
 
+const ALL_MODEL_IDS = modelRecommendations.map((m) => m.id);
+
+/** Models shown for a tier when no tool is selected, or when resolving defaults */
+export function modelsForTier(tier: Tier): ModelRecommendation[] {
+  return modelRecommendations.filter((m) => m.tiers.includes(tier));
+}
+
+/** Models compatible with the selected tool and project tier */
+export function modelsForToolAndTier(
+  toolId: string | undefined,
+  tier: Tier,
+): ModelRecommendation[] {
+  const tierModels = modelsForTier(tier);
+  if (!toolId) return tierModels;
+  const tool = toolRecommendations.find((t) => t.id === toolId);
+  if (!tool?.modelIds.length) return tierModels;
+  const allowed = new Set(tool.modelIds);
+  return tierModels.filter((m) => allowed.has(m.id));
+}
+
 export const toolRecommendations: ToolRecommendation[] = [
   {
     id: 'cursor',
     name: 'Cursor',
     tiers: [1, 2, 3, 4, 5, 6, 7],
+    modelIds: ALL_MODEL_IDS,
     description:
       'AI-powered code editor. Write code alongside an AI agent that can read your codebase, run commands, and make changes across files. Best for building real projects from scratch.',
     reasoning:
@@ -106,6 +127,7 @@ export const toolRecommendations: ToolRecommendation[] = [
     id: 'claude-code',
     name: 'Claude Code',
     tiers: [3, 4, 5, 6, 7],
+    modelIds: ['sonnet-mid', 'sonnet-thinking', 'opus'],
     description:
       'Terminal-based AI coding agent. Runs in your terminal, reads your codebase, and makes changes with your approval. Great for experienced developers who prefer the command line.',
     reasoning:
@@ -116,6 +138,7 @@ export const toolRecommendations: ToolRecommendation[] = [
     id: 'codex',
     name: 'OpenAI Codex',
     tiers: [3, 4, 5, 6, 7],
+    modelIds: ['gpt4o', 'o3', 'o1'],
     description:
       'OpenAI\'s cloud-based coding agent. Runs tasks in a sandboxed environment and creates pull requests. Good for delegating well-defined tasks.',
     reasoning:
@@ -126,6 +149,7 @@ export const toolRecommendations: ToolRecommendation[] = [
     id: 'v0',
     name: 'v0 by Vercel',
     tiers: [1, 2, 3, 4],
+    modelIds: ['sonnet-fast', 'gpt4o-mini', 'sonnet-mid', 'gpt4o'],
     description:
       'AI-powered UI generator. Describe what you want and get a working component or page. Best for generating UI quickly without writing code yourself.',
     reasoning:
@@ -136,6 +160,7 @@ export const toolRecommendations: ToolRecommendation[] = [
     id: 'bolt',
     name: 'Bolt',
     tiers: [1, 2, 3, 4, 5],
+    modelIds: ['sonnet-fast', 'gpt4o-mini', 'sonnet-mid', 'gpt4o', 'sonnet-thinking', 'o3'],
     description:
       'Browser-based AI development environment. Build and deploy web apps directly in your browser with AI assistance. No local setup needed.',
     reasoning:
@@ -146,6 +171,7 @@ export const toolRecommendations: ToolRecommendation[] = [
     id: 'lovable',
     name: 'Lovable',
     tiers: [1, 2, 3, 4, 5],
+    modelIds: ['sonnet-fast', 'gpt4o-mini', 'sonnet-mid', 'gpt4o', 'sonnet-thinking', 'o3'],
     description:
       'AI-powered app builder that generates full-stack applications from descriptions. Focuses on speed and visual output with built-in deployment.',
     reasoning:

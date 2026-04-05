@@ -1,4 +1,4 @@
-import type { ProjectConfig, Tier } from '../types';
+import type { ProjectConfig, ProjectFileResource, Tier } from '../types';
 import { projectTypes } from '../data/projectTypes';
 import {
   getTypeDetailFields,
@@ -6,7 +6,54 @@ import {
 } from '../data/projectTypeDetailFields';
 import { blocks } from '../data/blocks';
 import { techOptions } from '../data/techOptions';
+import { blockLibraries } from '../data/libraries';
 import { modelRecommendations, toolRecommendations } from '../data/models';
+import { getIntegrationById } from '../data/integrations';
+
+const MAX_EMBED_FILE_CHARS = 10_000;
+
+function decodeDataUrlToText(dataUrl: string): string | null {
+  if (!dataUrl.startsWith('data:')) return null;
+  const comma = dataUrl.indexOf(',');
+  if (comma < 0) return null;
+  const header = dataUrl.slice(5, comma);
+  const payload = dataUrl.slice(comma + 1);
+  if (/;base64/i.test(header)) {
+    try {
+      const binary = atob(payload);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    } catch {
+      return null;
+    }
+  }
+  try {
+    return decodeURIComponent(payload.replace(/\+/g, ' '));
+  } catch {
+    return null;
+  }
+}
+
+function tryEmbedFileContent(r: ProjectFileResource): string | null {
+  const mime = (r.mimeType || '').toLowerCase();
+  const name = r.fileName.toLowerCase();
+  const textLike =
+    mime.startsWith('text/') ||
+    mime === 'application/json' ||
+    mime === 'application/xml' ||
+    name.endsWith('.md') ||
+    name.endsWith('.txt') ||
+    name.endsWith('.json') ||
+    name.endsWith('.csv');
+  if (!textLike) return null;
+  const text = decodeDataUrlToText(r.dataUrl);
+  if (!text?.trim()) return null;
+  if (text.length > MAX_EMBED_FILE_CHARS) {
+    return `${text.slice(0, MAX_EMBED_FILE_CHARS)}\n\n…(truncated for prompt size)`;
+  }
+  return text;
+}
 
 export function generatePrompt(config: ProjectConfig, tier: Tier): string {
   const projectType = projectTypes.find((t) => t.id === config.projectTypeId);
@@ -52,6 +99,33 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
     sections.push('');
   }
 
+  const resources = config.resources ?? [];
+  if (resources.length > 0) {
+    sections.push('## Resources & references');
+    sections.push('');
+    sections.push(
+      'The following links and files are part of this workspace. Use them as documentation or context where relevant.',
+    );
+    sections.push('');
+    for (const r of resources) {
+      if (r.kind === 'url') {
+        sections.push(`- **${r.label}**: ${r.url}`);
+      } else {
+        sections.push(
+          `- **File**: ${r.fileName} (${r.mimeType || 'unknown type'}, ${r.sizeBytes} bytes)`,
+        );
+        const embedded = tryEmbedFileContent(r);
+        if (embedded) {
+          sections.push('');
+          sections.push('```');
+          sections.push(embedded);
+          sections.push('```');
+        }
+      }
+    }
+    sections.push('');
+  }
+
   // Tech Stack Overview
   sections.push('## Tech Stack Overview');
   sections.push('');
@@ -65,6 +139,18 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
       }
     } else {
       stackLines.push(`- **${block.name}**: (standard implementation)`);
+    }
+    const blockLibs = blockLibraries.filter(
+      (l) => l.blockId === block.id && config.selectedLibraryIds.includes(l.id),
+    );
+    if (blockLibs.length > 0) {
+      const grouped = blockLibs.reduce<Record<string, string[]>>((acc, l) => {
+        (acc[l.category] ??= []).push(l.name);
+        return acc;
+      }, {});
+      for (const [cat, names] of Object.entries(grouped)) {
+        stackLines.push(`  - *${cat}*: ${names.join(', ')}`);
+      }
     }
   }
   sections.push(stackLines.join('\n'));
@@ -80,7 +166,7 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
   sections.push('## Requirements by Block');
   sections.push('');
   for (const block of selectedBlocks) {
-    sections.push(`### ${block.icon} ${block.name}`);
+    sections.push(`### ${block.name}`);
     sections.push('');
     sections.push(generateBlockRequirements(block.id, config, tier));
     sections.push('');
@@ -120,6 +206,40 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
     }
   }
 
+  const chosenIntegrations = (config.selectedIntegrationIds ?? [])
+    .map((id) => getIntegrationById(id))
+    .filter((x): x is NonNullable<typeof x> => Boolean(x));
+  if (chosenIntegrations.length > 0) {
+    sections.push('');
+    sections.push('## Integrations & dependencies');
+    sections.push('');
+    const byCat = chosenIntegrations.reduce<Record<string, typeof chosenIntegrations>>((acc, i) => {
+      (acc[i.category] ??= []).push(i);
+      return acc;
+    }, {});
+    const order = ['skill', 'mcp', 'api', 'library'] as const;
+    const labels: Record<(typeof order)[number], string> = {
+      skill: 'Skills (skills.sh & related)',
+      mcp: 'MCP servers',
+      api: 'Third-party APIs',
+      library: 'Integration libraries',
+    };
+    for (const cat of order) {
+      const list = byCat[cat];
+      if (!list?.length) continue;
+      sections.push(`**${labels[cat]}:**`);
+      for (const i of list) {
+        const link = i.skillsShPath
+          ? `https://skills.sh/${i.skillsShPath.replace(/^\//, '')}`
+          : i.url;
+        const extra = link ? ` — ${link}` : '';
+        const hint = i.installHint ? ` (${i.installHint})` : '';
+        sections.push(`- **${i.name}**: ${i.description}${extra}${hint}`);
+      }
+      sections.push('');
+    }
+  }
+
   return sections.join('\n');
 }
 
@@ -152,6 +272,10 @@ function generateArchitectureDescription(
   const dbName = techOptions.find((o) => o.id === dbChoice)?.name;
   const authName = techOptions.find((o) => o.id === authChoice)?.name;
 
+  if (typeId === 'markdown') {
+    return `This is a structured markdown document — a skill, rule, hook, workflow, or similar text-based deliverable. No build step, no UI framework. The output is one or more well-organized .md files with clear sections, consistent formatting, and any required frontmatter or metadata. Focus on clarity, completeness, and following the target tool's conventions.`;
+  }
+
   if (typeId === 'mood-board') {
     return `This is a static mood board built with ${uiName}. No JavaScript framework or build step is needed — just HTML and CSS files that can be opened directly in a browser or deployed as a static site. Focus on design tokens (colors, typography, spacing) and example component patterns.`;
   }
@@ -162,6 +286,23 @@ function generateArchitectureDescription(
 
   if (typeId === 'prototype') {
     return `This is an interactive prototype built with ${fwName} and styled with ${uiName}. It's designed to demonstrate a concept, not to be production-ready. Focus on the core interaction flow and visual polish. ${hasBackend ? 'It connects to a lightweight backend for data.' : 'Use mock data where possible to keep things simple.'}`;
+  }
+
+  if (typeId === 'ios-mac-app') {
+    const parts: string[] = [];
+    parts.push(`This is a native Apple platform application built with Swift and SwiftUI/UIKit.`);
+    parts.push(`Follow Apple's Human Interface Guidelines for layout, navigation, and interaction patterns.`);
+    if (hasBackend) {
+      const backendName = techOptions.find((o) => o.id === config.techChoices['backend-api'])?.name ?? 'a backend API';
+      parts.push(`The app communicates with ${backendName} for server-side operations.`);
+    }
+    if (hasDb && dbName) {
+      parts.push(`Remote data is stored in ${dbName}.`);
+    }
+    if (hasAuth && authName) {
+      parts.push(`User authentication is handled by ${authName}.`);
+    }
+    return parts.join(' ');
   }
 
   const parts: string[] = [];
@@ -212,6 +353,16 @@ function generateBlockRequirements(
       'Use heading hierarchy correctly (h1 → h2 → h3, no skipping levels).',
       'Add ARIA labels to interactive elements that lack visible text.',
       'Structure forms with proper <label> elements and fieldsets.',
+    ],
+    accessibility: [
+      'Meet WCAG 2.1 Level AA compliance for all pages and interactive components.',
+      'Maintain minimum contrast ratios: 4.5:1 for normal text, 3:1 for large text (18px+ or 14px+ bold), and 3:1 for UI components and graphical objects.',
+      'Ensure full keyboard navigability: all interactive elements reachable via Tab, operable via Enter/Space, dismissible via Escape, and have visible focus indicators.',
+      'Add meaningful ARIA attributes: aria-label for icon-only buttons, aria-live regions for dynamic content, aria-expanded for collapsibles, and role attributes where semantic HTML is insufficient.',
+      'Support screen readers: test with VoiceOver (macOS) or NVDA (Windows) to verify reading order, announcements, and landmark navigation.',
+      'Respect prefers-reduced-motion and prefers-color-scheme media queries — disable animations and provide appropriate color schemes for users who request them.',
+      'Implement skip-to-content links and logical focus management for route changes and modal dialogs.',
+      'Run automated accessibility audits (axe-core or Pa11y) in CI to catch regressions on every pull request.',
     ],
     functionality: [
       'Implement error boundaries and graceful error handling.',
@@ -375,6 +526,50 @@ function generateFileStructure(tier: Tier, config: ProjectConfig): string {
   const hasAuth = config.selectedBlockIds.includes('auth');
   const hasTests = config.selectedBlockIds.includes('testing');
 
+  if (config.projectTypeId === 'markdown') {
+    return `project/
+├── SKILL.md (or RULE.md)    # Primary deliverable
+├── examples/                 # Usage examples
+│   ├── example-1.md
+│   └── example-2.md
+├── templates/                # Reusable templates
+│   └── template.md
+└── README.md                 # Setup and usage guide`;
+  }
+
+  if (config.projectTypeId === 'ios-mac-app') {
+    const lines = [
+      'App/',
+      '├── App.swift                # App entry point',
+      '├── ContentView.swift        # Root view',
+      '├── Views/',
+      '│   ├── Components/          # Reusable UI components',
+      '│   └── Screens/             # Top-level screen views',
+      '├── Models/                   # Data models',
+      '├── ViewModels/               # View models / observable objects',
+      '├── Services/',
+    ];
+    if (hasBackend) {
+      lines.push('│   ├── APIClient.swift       # Network layer');
+    }
+    if (hasAuth) {
+      lines.push('│   ├── AuthService.swift     # Authentication');
+    }
+    lines.push('│   └── ...');
+    lines.push('├── Utilities/                # Extensions and helpers');
+    lines.push('├── Resources/');
+    lines.push('│   ├── Assets.xcassets       # Images, colors, app icon');
+    lines.push('│   └── Localizable.strings   # Localization');
+    if (hasTests) {
+      lines.push('├── Tests/');
+      lines.push('│   ├── UnitTests/');
+      lines.push('│   └── UITests/');
+    }
+    lines.push('├── Info.plist');
+    lines.push('└── README.md');
+    return lines.join('\n');
+  }
+
   if (tier <= 1) {
     return `project/
 ├── index.html
@@ -483,12 +678,40 @@ function generateFileStructure(tier: Tier, config: ProjectConfig): string {
 function generateGettingStarted(
   tier: Tier,
   selectedBlocks: typeof blocks,
-  _config: ProjectConfig,
+  config: ProjectConfig,
 ): string {
   const steps: string[] = [];
 
   steps.push('**Implementation order** (build in this sequence):');
   steps.push('');
+
+  if (config.projectTypeId === 'markdown') {
+    steps.push('1. Define the document schema — required sections, frontmatter keys, naming conventions');
+    steps.push('2. Write the primary deliverable with all required sections');
+    steps.push('3. Add usage examples demonstrating real-world application');
+    steps.push('4. Create templates for reuse if applicable');
+    steps.push('5. Write a README explaining setup, usage, and conventions');
+    return steps.join('\n');
+  }
+
+  if (config.projectTypeId === 'ios-mac-app') {
+    steps.push('1. Create the Xcode project with the correct target platforms');
+    steps.push('2. Set up the navigation structure and root views');
+    steps.push('3. Define data models and view models');
+    if (selectedBlocks.some((b) => b.id === 'backend-api')) {
+      steps.push('4. Build the networking layer and API client');
+    }
+    if (selectedBlocks.some((b) => b.id === 'auth')) {
+      steps.push('5. Implement authentication flow');
+    }
+    steps.push('6. Build core feature screens with real data');
+    steps.push('7. Add error handling, loading states, and empty states');
+    if (selectedBlocks.some((b) => b.id === 'testing')) {
+      steps.push('8. Write unit tests and UI tests for critical paths');
+    }
+    steps.push('9. Configure App Store Connect and submit for review');
+    return steps.join('\n');
+  }
 
   if (tier <= 2) {
     steps.push('1. Set up the project structure and basic HTML');

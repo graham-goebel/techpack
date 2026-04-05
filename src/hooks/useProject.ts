@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ProjectConfig, Tier } from '../types';
+import type { ProjectConfig, ProjectFileResource, ProjectResource, Tier } from '../types';
 import { blocks } from '../data/blocks';
 import { techOptions } from '../data/techOptions';
+import { blockLibraries } from '../data/libraries';
 import { projectTypes } from '../data/projectTypes';
-import { modelRecommendations, toolRecommendations } from '../data/models';
+import { modelsForToolAndTier, toolRecommendations } from '../data/models';
 
 const WORKSPACE_STORAGE_KEY = 'tech-pack-workspace';
 const validProjectTypeIds = new Set(projectTypes.map((t) => t.id));
@@ -19,9 +20,37 @@ function createEmptyConfig(): ProjectConfig {
     typeDetails: {},
     selectedModelId: '',
     selectedToolIds: [],
+    selectedLibraryIds: [],
+    selectedIntegrationIds: [],
+    resources: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
+}
+
+function parseResources(raw: unknown): ProjectResource[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ProjectResource[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    const id = typeof o.id === 'string' ? o.id : '';
+    if (!id) continue;
+    if (o.kind === 'url') {
+      const url = typeof o.url === 'string' ? o.url.trim() : '';
+      if (!url) continue;
+      const label = typeof o.label === 'string' ? o.label.trim() : url;
+      out.push({ id, kind: 'url', label: label || url, url });
+    } else if (o.kind === 'file') {
+      const fileName = typeof o.fileName === 'string' ? o.fileName : '';
+      const dataUrl = typeof o.dataUrl === 'string' ? o.dataUrl : '';
+      if (!fileName || !dataUrl.startsWith('data:')) continue;
+      const mimeType = typeof o.mimeType === 'string' ? o.mimeType : 'application/octet-stream';
+      const sizeBytes = typeof o.sizeBytes === 'number' && o.sizeBytes >= 0 ? o.sizeBytes : 0;
+      out.push({ id, kind: 'file', fileName, mimeType, sizeBytes, dataUrl });
+    }
+  }
+  return out;
 }
 
 function loadWorkspaceFromStorage(): ProjectConfig | null {
@@ -59,8 +88,15 @@ function loadWorkspaceFromStorage(): ProjectConfig | null {
       typeDetails,
       selectedModelId: typeof o.selectedModelId === 'string' ? o.selectedModelId : '',
       selectedToolIds: Array.isArray(o.selectedToolIds)
-        ? (o.selectedToolIds as string[]).filter((id): id is string => typeof id === 'string')
+        ? (o.selectedToolIds as string[]).filter((id): id is string => typeof id === 'string').slice(0, 1)
         : [],
+      selectedLibraryIds: Array.isArray(o.selectedLibraryIds)
+        ? (o.selectedLibraryIds as string[]).filter((id): id is string => typeof id === 'string')
+        : [],
+      selectedIntegrationIds: Array.isArray(o.selectedIntegrationIds)
+        ? (o.selectedIntegrationIds as string[]).filter((id): id is string => typeof id === 'string')
+        : [],
+      resources: parseResources(o.resources),
       createdAt: typeof o.createdAt === 'number' ? o.createdAt : Date.now(),
       updatedAt: Date.now(),
     };
@@ -101,6 +137,9 @@ export function useProject() {
           typeDetails: {},
           selectedModelId: '',
           selectedToolIds: [],
+          selectedLibraryIds: [],
+          selectedIntegrationIds: [],
+          resources: [],
           updatedAt: Date.now(),
         };
       }
@@ -109,7 +148,7 @@ export function useProject() {
       const defaultBlockIds = blocks
         .filter((b) => {
           const status = b.statusForTier(tier);
-          return status === 'required' || status === 'recommended';
+          return status === 'required';
         })
         .map((b) => b.id);
 
@@ -123,12 +162,14 @@ export function useProject() {
         }
       }
 
-      const defaultModel = modelRecommendations.find((m) => m.tiers.includes(tier));
       const defaultTools = toolRecommendations
         .filter((t) => t.tiers.includes(tier))
         .sort((a, b) => (a.id === 'cursor' ? -1 : b.id === 'cursor' ? 1 : 0))
         .slice(0, 1)
         .map((t) => t.id);
+      const primaryToolId = defaultTools[0];
+      const modelsForDefaultTool = modelsForToolAndTier(primaryToolId, tier);
+      const defaultModel = modelsForDefaultTool[0];
 
       return {
         ...prev,
@@ -138,6 +179,9 @@ export function useProject() {
         typeDetails: {},
         selectedModelId: defaultModel?.id ?? '',
         selectedToolIds: defaultTools,
+        selectedLibraryIds: [],
+        selectedIntegrationIds: [],
+        resources: [],
         updatedAt: Date.now(),
       };
     });
@@ -151,8 +195,13 @@ export function useProject() {
         : [...prev.selectedBlockIds, blockId];
 
       const techChoices = { ...prev.techChoices };
+      let selectedLibraryIds = prev.selectedLibraryIds;
       if (isSelected) {
         delete techChoices[blockId];
+        const blockLibIds = new Set(
+          blockLibraries.filter((l) => l.blockId === blockId).map((l) => l.id),
+        );
+        selectedLibraryIds = selectedLibraryIds.filter((id) => !blockLibIds.has(id));
       } else {
         const defaultOption = techOptions.find(
           (o) => o.blockId === blockId && o.isDefault,
@@ -162,7 +211,7 @@ export function useProject() {
         }
       }
 
-      return { ...prev, selectedBlockIds, techChoices, updatedAt: Date.now() };
+      return { ...prev, selectedBlockIds, techChoices, selectedLibraryIds, updatedAt: Date.now() };
     });
   }, []);
 
@@ -202,14 +251,77 @@ export function useProject() {
     }));
   }, []);
 
-  const toggleTool = useCallback((toolId: string) => {
+  const toggleIntegration = useCallback((integrationId: string) => {
     setConfig((prev) => {
-      const has = prev.selectedToolIds.includes(toolId);
+      const has = prev.selectedIntegrationIds.includes(integrationId);
       return {
         ...prev,
-        selectedToolIds: has
-          ? prev.selectedToolIds.filter((id) => id !== toolId)
-          : [...prev.selectedToolIds, toolId],
+        selectedIntegrationIds: has
+          ? prev.selectedIntegrationIds.filter((id) => id !== integrationId)
+          : [...prev.selectedIntegrationIds, integrationId],
+        updatedAt: Date.now(),
+      };
+    });
+  }, []);
+
+  const toggleLibrary = useCallback((libraryId: string) => {
+    setConfig((prev) => {
+      const has = prev.selectedLibraryIds.includes(libraryId);
+      return {
+        ...prev,
+        selectedLibraryIds: has
+          ? prev.selectedLibraryIds.filter((id) => id !== libraryId)
+          : [...prev.selectedLibraryIds, libraryId],
+        updatedAt: Date.now(),
+      };
+    });
+  }, []);
+
+  const addResourceUrl = useCallback((label: string, rawUrl: string) => {
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return;
+    const url = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const safeLabel = label.trim() || url;
+    setConfig((prev) => ({
+      ...prev,
+      resources: [
+        ...(prev.resources ?? []),
+        { id: crypto.randomUUID(), kind: 'url', label: safeLabel, url },
+      ],
+      updatedAt: Date.now(),
+    }));
+  }, []);
+
+  const addResourceFile = useCallback((file: Omit<ProjectFileResource, 'id' | 'kind'>) => {
+    setConfig((prev) => ({
+      ...prev,
+      resources: [
+        ...(prev.resources ?? []),
+        { id: crypto.randomUUID(), kind: 'file', ...file },
+      ],
+      updatedAt: Date.now(),
+    }));
+  }, []);
+
+  const removeResource = useCallback((resourceId: string) => {
+    setConfig((prev) => ({
+      ...prev,
+      resources: (prev.resources ?? []).filter((r) => r.id !== resourceId),
+      updatedAt: Date.now(),
+    }));
+  }, []);
+
+  const setTool = useCallback((toolId: string | null) => {
+    setConfig((prev) => {
+      const tier = getTierForType(prev.projectTypeId);
+      const nextToolIds = toolId ? [toolId] : [];
+      const allowed = modelsForToolAndTier(toolId ?? undefined, tier);
+      const currentOk = allowed.some((m) => m.id === prev.selectedModelId);
+      const nextModelId = currentOk ? prev.selectedModelId : (allowed[0]?.id ?? '');
+      return {
+        ...prev,
+        selectedToolIds: nextToolIds,
+        selectedModelId: nextModelId,
         updatedAt: Date.now(),
       };
     });
@@ -230,18 +342,25 @@ export function useProject() {
     setProjectDescription,
     setTypeDetail,
     setModel,
-    toggleTool,
+    setTool,
+    toggleLibrary,
+    toggleIntegration,
+    addResourceUrl,
+    addResourceFile,
+    removeResource,
   };
 }
 
 function getTierForType(typeId: string): Tier {
   const tierMap: Record<string, Tier> = {
-    'style-tile': 1, // legacy id — workspace migrates to mood-board on load
+    'style-tile': 1,
+    markdown: 1,
     'mood-board': 1,
     'plugin-extension': 2,
     prototype: 3,
     website: 4,
     'web-app': 5,
+    'ios-mac-app': 5,
     saas: 6,
     platform: 7,
   };

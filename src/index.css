@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "Instrument Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
 
   --color-ink: #0a0a0a;
@@ -12,8 +12,8 @@
   --color-surface-raised: #fafafa;
   --color-rule: #ebebeb;
   --color-rule-strong: #d4d4d4;
-  --color-accent: #dc2626;
-  --color-accent-light: #fef2f2;
+  --color-accent: #15803d;
+  --color-accent-light: #f0fdf4;
 
   --animate-fade-in: fade-in 0.15s ease-out;
   --animate-slide-up: slide-up 0.2s ease-out;
@@ -34,6 +34,7 @@ html {
 }
 
 body {
+  font-family: var(--font-sans);
   background-color: var(--color-surface);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
@@ -41,7 +42,7 @@ body {
 }
 
 ::selection {
-  background-color: rgba(220, 38, 38, 0.15);
+  background-color: rgba(21, 128, 61, 0.18);
 }
 
 ::-webkit-scrollbar {

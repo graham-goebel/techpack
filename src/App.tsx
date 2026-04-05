@@ -16,7 +16,12 @@ function App() {
     setProjectDescription,
     setTypeDetail,
     setModel,
-    toggleTool,
+    setTool,
+    toggleLibrary,
+    toggleIntegration,
+    addResourceUrl,
+    addResourceFile,
+    removeResource,
   } = useProject();
 
   const [, setSavedConfigs] = useLocalStorage<ProjectConfig[]>('tech-pack-saved', []);
@@ -45,7 +50,12 @@ function App() {
         onSetDescription={setProjectDescription}
         onSetTypeDetail={setTypeDetail}
         onSetModel={setModel}
-        onToggleTool={toggleTool}
+        onSetTool={setTool}
+        onToggleLibrary={toggleLibrary}
+        onToggleIntegration={toggleIntegration}
+        onAddResourceUrl={addResourceUrl}
+        onAddResourceFile={addResourceFile}
+        onRemoveResource={removeResource}
       />
       <MainContent
         config={config}

@@ -1,5 +1,5 @@
 /**
- * Seven-segment visual for relative project scope (red = more surface area by default).
+ * Seven-segment visual for relative project scope (accent = more surface area by default).
  * No tier numbering — decorative / supplementary to labels elsewhere.
  */
 export function ComplexityDots({

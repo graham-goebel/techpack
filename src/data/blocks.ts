@@ -17,7 +17,6 @@ export const blocks: Block[] = [
   {
     id: 'visual-ui',
     name: 'Visual Language / UI',
-    icon: '🎨',
     summary: 'How your project looks — colors, fonts, spacing, and component styles.',
     explanation:
       'This is your project\'s visual identity. It defines the color palette, typography (fonts and sizes), spacing system, and how individual elements like buttons, cards, and forms look. Think of it as your project\'s "outfit" — it sets the tone and feel for everything users see.',
@@ -26,11 +25,16 @@ export const blocks: Block[] = [
     minTier: 1,
     statusForTier: tierRange(1),
     techOptionIds: ['tailwind', 'css-modules', 'styled-components', 'vanilla-css'],
+    libraryIds: [
+      'heroicons', 'lucide', 'phosphor', 'tabler-icons',
+      'framer-motion', 'gsap', 'auto-animate', 'tailwind-animate', 'lottie',
+      'shadcn-ui', 'radix-primitives', 'headless-ui', 'react-aria',
+      'fontsource', 'google-fonts',
+    ],
   },
   {
     id: 'markup-structure',
     name: 'Markup & Structure',
-    icon: '🏗️',
     summary: 'The HTML skeleton — semantic tags, page layout, and accessibility.',
     explanation:
       'HTML is the bones of every web page. Good markup uses the right tags for the right content (headings, lists, buttons) so that screen readers, search engines, and browsers all understand your page. This block covers how your pages are structured and organized.',
@@ -41,9 +45,20 @@ export const blocks: Block[] = [
     techOptionIds: [],
   },
   {
+    id: 'accessibility',
+    name: 'Accessibility',
+    summary: 'WCAG compliance, screen reader support, keyboard navigation, and contrast ratios.',
+    explanation:
+      'Accessibility (a11y) means making your app usable by everyone, including people with visual, motor, cognitive, or hearing disabilities. This covers WCAG 2.0/2.1 guidelines, AA contrast ratios (4.5:1 for text, 3:1 for large text), keyboard navigation, screen reader compatibility, focus management, ARIA attributes, and reduced-motion preferences.',
+    whyNeeded:
+      'About 15% of people worldwide have some form of disability. Accessible design isn\'t just ethical — in many jurisdictions it\'s legally required (ADA, EAA). Beyond compliance, accessible apps are better for everyone: keyboard shortcuts help power users, good contrast helps in bright sunlight, and clear focus states help anyone navigating with a keyboard.',
+    minTier: 3,
+    statusForTier: tierRange(5, 3),
+    techOptionIds: ['axe-core', 'eslint-a11y', 'pa11y'],
+  },
+  {
     id: 'functionality',
     name: 'Functionality / Interactivity',
-    icon: '⚙️',
     summary: 'Client-side JavaScript that makes things interactive.',
     explanation:
       'This is the code that makes your project do things — respond to clicks, validate forms, animate elements, toggle menus, fetch data from elsewhere. Without it, your page is static and can\'t react to what users do.',
@@ -52,11 +67,14 @@ export const blocks: Block[] = [
     minTier: 2,
     statusForTier: tierRange(2),
     techOptionIds: ['react', 'vue', 'svelte', 'vanilla-js'],
+    libraryIds: [
+      'react-hook-form', 'tanstack-query', 'tanstack-table',
+      'dnd-kit', 'recharts', 'date-fns', 'sonner',
+    ],
   },
   {
     id: 'routing',
     name: 'Routing & Navigation',
-    icon: '🧭',
     summary: 'How users move between pages or views in your project.',
     explanation:
       'Routing is the system that decides what content to show when a user visits a URL like /about or /dashboard. It\'s what makes your browser\'s back button work and lets you share links to specific pages. Think of it as a map for your project.',
@@ -69,7 +87,6 @@ export const blocks: Block[] = [
   {
     id: 'state-management',
     name: 'State Management',
-    icon: '🧠',
     summary: 'How your app tracks and shares data between components.',
     explanation:
       'State is any data your app needs to remember — is the menu open? What did the user type? Which items are in the cart? State management is the system for storing this data and keeping your entire UI in sync when it changes. Without it, different parts of your app can get "out of sync" and show conflicting information.',
@@ -82,7 +99,6 @@ export const blocks: Block[] = [
   {
     id: 'backend-api',
     name: 'Backend / API Layer',
-    icon: '🖥️',
     summary: 'Server-side code that processes requests and talks to databases.',
     explanation:
       'The backend is the "behind the scenes" part of your app that users never see. It receives requests from the frontend, processes them (validate data, check permissions, talk to the database), and sends back responses. An API (Application Programming Interface) is the set of rules for how the frontend and backend communicate.',
@@ -95,7 +111,6 @@ export const blocks: Block[] = [
   {
     id: 'database',
     name: 'Database & Data Modeling',
-    icon: '🗄️',
     summary: 'Where your app\'s data lives permanently.',
     explanation:
       'A database is like a sophisticated spreadsheet that your app reads from and writes to. Data modeling is the process of deciding how to organize that data — what tables (or collections) you need, what columns they have, and how they relate to each other. For example, a "users" table might connect to an "orders" table.',
@@ -108,7 +123,6 @@ export const blocks: Block[] = [
   {
     id: 'auth',
     name: 'Authentication & Authorization',
-    icon: '🔐',
     summary: 'User login, accounts, roles, and permissions.',
     explanation:
       'Authentication is verifying who someone is (login). Authorization is deciding what they\'re allowed to do (permissions). Together, they control access to your app. This includes sign-up flows, password resets, session management, and role-based access (e.g., admin vs. regular user).',
@@ -121,7 +135,6 @@ export const blocks: Block[] = [
   {
     id: 'security',
     name: 'Security & Sensitive Data',
-    icon: '🛡️',
     summary: 'Protecting your app and user data from attacks.',
     explanation:
       'Security covers all the measures that protect your app from malicious actors. This includes encrypting data in transit (HTTPS), validating user input to prevent injection attacks, setting up proper CORS policies (which websites can talk to your API), and following OWASP best practices. It\'s not glamorous, but skipping it can be catastrophic.',
@@ -134,7 +147,6 @@ export const blocks: Block[] = [
   {
     id: 'file-storage',
     name: 'File Storage & Media',
-    icon: '📁',
     summary: 'Uploading, storing, and serving images, videos, and documents.',
     explanation:
       'When users upload profile pictures, attach documents, or share videos, those files need to be stored somewhere and served back efficiently. File storage services handle this — they store files in the cloud and provide URLs to access them. They also handle things like image resizing and format conversion.',
@@ -147,7 +159,6 @@ export const blocks: Block[] = [
   {
     id: 'payments',
     name: 'Payments & Billing',
-    icon: '💳',
     summary: 'Accepting payments, subscriptions, and invoicing.',
     explanation:
       'If you charge money — one-time payments, subscriptions, or usage-based billing — you need a payment processor. These services handle the complex (and legally regulated) process of charging credit cards, managing subscriptions, handling refunds, and generating invoices. You never store credit card numbers yourself.',
@@ -160,7 +171,6 @@ export const blocks: Block[] = [
   {
     id: 'email-notifications',
     name: 'Email & Notifications',
-    icon: '📧',
     summary: 'Sending emails, push notifications, and in-app alerts.',
     explanation:
       'Transactional emails are messages triggered by user actions — welcome emails, password resets, order confirmations. Push notifications alert users on their devices. Webhooks let your app notify other services when things happen. This block covers all the ways your app communicates with users outside the main interface.',
@@ -173,7 +183,6 @@ export const blocks: Block[] = [
   {
     id: 'env-secrets',
     name: 'Environment & Secrets',
-    icon: '🔑',
     summary: 'Managing API keys, tokens, and configuration securely.',
     explanation:
       'Your project uses API keys, database passwords, and service tokens that must stay secret. Environment variables let you store these outside your code so they\'re never accidentally shared. A .env file keeps them locally; hosting platforms have their own secrets management. This block ensures sensitive data is handled safely.',
@@ -186,7 +195,6 @@ export const blocks: Block[] = [
   {
     id: 'hosting',
     name: 'Hosting & Deployment',
-    icon: '🚀',
     summary: 'Where your project lives on the internet and how it gets there.',
     explanation:
       'Hosting is renting a server (or a piece of one) where your project runs and is accessible via a URL. Deployment is the process of sending your code to that server. Modern platforms make this nearly automatic — push your code, and it\'s live in minutes.',
@@ -199,7 +207,6 @@ export const blocks: Block[] = [
   {
     id: 'ci-cd',
     name: 'CI/CD & Dev Process',
-    icon: '🔄',
     summary: 'Automated testing, code review, and deployment pipelines.',
     explanation:
       'CI/CD stands for Continuous Integration / Continuous Deployment. It means every time you push code, automated systems check for errors (run tests, lint code) and deploy it if everything passes. It also covers your development workflow — branching strategy, code review, and how changes get approved.',
@@ -212,7 +219,6 @@ export const blocks: Block[] = [
   {
     id: 'analytics',
     name: 'Analytics & Monitoring',
-    icon: '📊',
     summary: 'Tracking usage, errors, and performance in production.',
     explanation:
       'Analytics tells you how people use your product — which pages they visit, which features they use, where they drop off. Monitoring watches for errors and performance issues in real time. Together, they answer "is it working?" and "are people using it?"',
@@ -225,7 +231,6 @@ export const blocks: Block[] = [
   {
     id: 'seo-performance',
     name: 'SEO & Performance',
-    icon: '🔍',
     summary: 'Making your site fast and discoverable by search engines.',
     explanation:
       'SEO (Search Engine Optimization) is about making Google (and other search engines) understand and rank your pages. Performance is about making your site load quickly — Google actually penalizes slow sites. This covers meta tags, structured data, image optimization, caching, lazy loading, and Core Web Vitals.',
@@ -238,7 +243,6 @@ export const blocks: Block[] = [
   {
     id: 'testing',
     name: 'Testing',
-    icon: '🧪',
     summary: 'Automated checks that verify your code works correctly.',
     explanation:
       'Tests are small programs that automatically verify your app works as expected. Unit tests check individual functions. Integration tests check that pieces work together. End-to-end (E2E) tests simulate real user interactions in a browser. Good tests catch bugs before users do and give you confidence to make changes.',
@@ -251,7 +255,6 @@ export const blocks: Block[] = [
   {
     id: 'documentation',
     name: 'Documentation',
-    icon: '📝',
     summary: 'README files, API docs, and architecture decisions.',
     explanation:
       'Documentation is the written guide to your project — how to set it up, how it works, and why decisions were made. A README explains how to get started. API docs describe endpoints for other developers. Architecture Decision Records (ADRs) capture why you chose one approach over another.',
@@ -264,7 +267,6 @@ export const blocks: Block[] = [
   {
     id: 'compliance',
     name: 'Compliance & Legal',
-    icon: '⚖️',
     summary: 'Privacy policies, terms of service, GDPR, and cookie consent.',
     explanation:
       'If you collect user data (even just email addresses), laws like GDPR (Europe), CCPA (California), and others require you to disclose what you collect, how you use it, and let users delete their data. This block covers privacy policies, terms of service, cookie consent banners, and data handling practices.',

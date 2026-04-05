@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Block, ProjectConfig, Tier } from '../../types';
 import { techOptions } from '../../data/techOptions';
+import { BlockOcticon } from '../icons/OcticonById';
 
 const NODE_W = 200;
 const NODE_H = 104;
@@ -13,7 +14,7 @@ const CANVAS_PAD = 60;
  * within each row for minimal edge crossings.
  */
 const LAYER_DEFS: { label: string; ids: string[] }[] = [
-  { label: 'Presentation', ids: ['visual-ui', 'markup-structure', 'seo-performance'] },
+  { label: 'Presentation', ids: ['visual-ui', 'markup-structure', 'accessibility', 'seo-performance'] },
   { label: 'Client', ids: ['routing', 'functionality', 'state-management'] },
   { label: 'Server', ids: ['auth', 'backend-api', 'security'] },
   { label: 'Data & Services', ids: ['database', 'file-storage', 'payments', 'email-notifications'] },
@@ -22,6 +23,8 @@ const LAYER_DEFS: { label: string; ids: string[] }[] = [
 
 /** Cross-layer connections — source feeds / is consumed by target */
 const TOPOLOGY_EDGES: [string, string][] = [
+  ['visual-ui', 'accessibility'],
+  ['markup-structure', 'accessibility'],
   ['visual-ui', 'functionality'],
   ['markup-structure', 'functionality'],
   ['routing', 'backend-api'],
@@ -200,6 +203,7 @@ export function ArchitectureFlowCanvas({
     const el = wrapRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      if ((e.target as HTMLElement).closest('[data-flow-panel]')) return;
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       const mx = e.clientX - rect.left;
@@ -424,8 +428,8 @@ export function ArchitectureFlowCanvas({
                   onClick={() => onExpandToggle(isExpanded ? null : block.id)}
                   className="flex-1 flex items-center gap-1.5 min-w-0 text-left"
                 >
-                  <span className="text-sm shrink-0 leading-none" aria-hidden>
-                    {block.icon}
+                  <span className="shrink-0 text-ink-muted flex items-center" aria-hidden>
+                    <BlockOcticon blockId={block.id} size={14} />
                   </span>
                   <span
                     className={`text-[9px] font-bold uppercase tracking-wider truncate ${
@@ -472,11 +476,12 @@ export function ArchitectureFlowCanvas({
           data-flow-panel
           className="absolute z-30 right-3 top-3 bottom-3 w-96 max-w-[calc(100%-24px)] max-h-[calc(100%-24px)] flex flex-col bg-white border border-rule shadow-md animate-fade-in pointer-events-auto"
           onPointerDown={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
         >
           <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-rule bg-surface-raised">
             <div className="min-w-0 flex items-center gap-2">
-              <span className="text-lg" aria-hidden>
-                {expandedBlock.icon}
+              <span className="text-ink-muted flex items-center shrink-0" aria-hidden>
+                <BlockOcticon blockId={expandedBlock.id} size={20} />
               </span>
               <span className="text-[11px] font-bold text-ink truncate">{expandedBlock.name}</span>
             </div>
@@ -489,13 +494,6 @@ export function ArchitectureFlowCanvas({
             </button>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="px-3 py-2.5 border-b border-rule">
-              <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">Architecture</p>
-              <p className="text-[10px] text-ink-secondary leading-relaxed">
-                Blocks are arranged by architectural layer — from user-facing presentation at the top to
-                operations at the bottom. Arrows show data and control flow between layers.
-              </p>
-            </div>
             <div className="px-3 py-2.5 border-b border-rule">
               <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">What is this</p>
               <p className="text-[10px] text-ink-secondary leading-relaxed">{expandedBlock.explanation}</p>
