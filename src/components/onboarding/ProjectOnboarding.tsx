@@ -9,6 +9,7 @@ import {
   type IntegrationCategory,
   type IntegrationItem,
 } from '../../data/integrations';
+import { toolRecommendations } from '../../data/models';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
 import { ResourcesPanel } from '../resources/ResourcesPanel';
@@ -26,6 +27,31 @@ const INTEGRATION_CATEGORY_LABELS: Record<IntegrationCategory, string> = {
 
 const INTEGRATION_CATEGORY_ORDER: IntegrationCategory[] = ['skill', 'mcp', 'api', 'library'];
 
+function OnboardingBlockExplanationTooltip({ blockId, explanation }: { blockId: string; explanation: string }) {
+  const descId = `onboarding-block-explain-${blockId}`;
+  return (
+    <div className="group relative inline-flex max-w-full min-w-0">
+      <button
+        type="button"
+        className="text-[11px] font-medium text-ink-muted decoration-rule decoration-1 underline-offset-2 hover:text-ink-secondary hover:decoration-ink-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:ring-offset-surface rounded-sm text-left"
+        aria-describedby={descId}
+      >
+        Full description
+      </button>
+      <span id={descId} className="sr-only">
+        {explanation}
+      </span>
+      <div
+        role="tooltip"
+        aria-hidden="true"
+        className="pointer-events-none absolute z-[250] left-0 top-[calc(100%+6px)] w-[min(20rem,calc(100vw-2.5rem))] rounded-md border border-white/12 bg-ink px-3 py-2.5 text-[11px] text-surface/90 leading-relaxed shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+      >
+        {explanation}
+      </div>
+    </div>
+  );
+}
+
 interface ProjectOnboardingProps {
   config: ProjectConfig;
   tier: Tier;
@@ -34,6 +60,7 @@ interface ProjectOnboardingProps {
   onSetName: (name: string) => void;
   onSetDescription: (desc: string) => void;
   onSetTypeDetail: (fieldId: string, value: string) => void;
+  onSetTool: (toolId: string | null) => void;
   onToggleBlock: (blockId: string) => void;
   onToggleIntegration: (integrationId: string) => void;
   onAddResourceUrl: (label: string, url: string) => void;
@@ -50,6 +77,7 @@ export function ProjectOnboarding({
   onSetName,
   onSetDescription,
   onSetTypeDetail,
+  onSetTool,
   onToggleBlock,
   onToggleIntegration,
   onAddResourceUrl,
@@ -74,6 +102,20 @@ export function ProjectOnboarding({
         }),
     [tier],
   );
+
+  const toolsForTier = useMemo(
+    () =>
+      toolRecommendations
+        .filter((t) => t.tiers.includes(tier))
+        .sort((a, b) => (a.id === 'cursor' ? -1 : b.id === 'cursor' ? 1 : 0)),
+    [tier],
+  );
+
+  const selectedToolId = config.selectedToolIds[0];
+  const toolSelectValue =
+    selectedToolId && toolsForTier.some((t) => t.id === selectedToolId)
+      ? selectedToolId
+      : (toolsForTier[0]?.id ?? '');
 
   const visibleIntegrations = useMemo(
     () =>
@@ -126,8 +168,8 @@ export function ProjectOnboarding({
             <HomeNavButton onClick={onGoHome} iconSize={18} />
           </div>
         )}
-        <div className="max-w-3xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pr-12 sm:pr-14">
-          <div className="min-w-0 flex-1">
+        <div className="max-w-3xl mx-auto pr-12 sm:pr-14">
+          <div className="min-w-0">
             <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-1">
               Setup · Step {stepIndex + 1} of {STEPS.length}
             </p>
@@ -143,17 +185,6 @@ export function ProjectOnboarding({
               </div>
             )}
           </div>
-          <nav className="flex gap-1.5" aria-label="Onboarding progress">
-            {STEPS.map((s, i) => (
-              <span
-                key={s}
-                className={`h-1.5 flex-1 sm:w-16 sm:flex-none rounded-full transition-colors ${
-                  i <= stepIndex ? 'bg-ink' : 'bg-rule'
-                }`}
-                title={s}
-              />
-            ))}
-          </nav>
         </div>
       </header>
 
@@ -162,8 +193,9 @@ export function ProjectOnboarding({
           {step === 'details' && (
             <div className="space-y-6 animate-fade-in">
               <p className="text-sm text-ink-secondary leading-relaxed">
-                Give this tech pack a name and describe what you are building. The extra fields below are tailored to
-                your project type and help downstream suggestions stay relevant.
+                Give this tech pack a name and describe what you are building. Pick the AI coding tool you plan to use
+                so model suggestions and prompt wording stay compatible. The extra fields below are tailored to your
+                project type.
               </p>
               <div className="border border-rule bg-surface-raised/50 rounded-lg overflow-hidden divide-y divide-rule">
                 <div className="p-4 sm:p-5">
@@ -191,6 +223,32 @@ export function ProjectOnboarding({
                     className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none resize-none leading-relaxed"
                   />
                 </div>
+                {toolsForTier.length > 0 && (
+                  <div className="p-4 sm:p-5">
+                    <label
+                      htmlFor="onboarding-ai-tool"
+                      className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2"
+                    >
+                      AI coding tool
+                    </label>
+                    <select
+                      id="onboarding-ai-tool"
+                      value={toolSelectValue}
+                      onChange={(e) => onSetTool(e.target.value || null)}
+                      className="w-full max-w-md bg-surface border border-rule rounded-md px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/15"
+                      aria-label="AI coding tool"
+                    >
+                      {toolsForTier.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-[10px] text-ink-muted leading-snug max-w-md">
+                      {toolsForTier.find((t) => t.id === toolSelectValue)?.description}
+                    </p>
+                  </div>
+                )}
                 {typeDetailFields.map((field) => (
                   <div key={field.id} className="p-4 sm:p-5">
                     <label className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
@@ -280,7 +338,7 @@ export function ProjectOnboarding({
                         !active && !isRequired ? 'opacity-70' : ''
                       }`}
                     >
-                      <div className="flex flex-col flex-1 w-full min-h-0 border border-rule rounded-lg overflow-hidden bg-surface hover:bg-surface-raised/80 transition-colors">
+                      <div className="flex flex-col flex-1 w-full min-h-0 border border-rule rounded-lg overflow-visible bg-surface hover:bg-surface-raised/80 transition-colors">
                         <div className="flex gap-3 p-4 sm:p-5 flex-1 min-h-0">
                           <span className="shrink-0 text-ink-muted mt-0.5" aria-hidden>
                             <BlockOcticon blockId={block.id} size={20} />
@@ -303,7 +361,9 @@ export function ProjectOnboarding({
                               </span>
                             </div>
                             <p className="text-xs text-ink-muted leading-relaxed">{block.summary}</p>
-                            <p className="text-[11px] text-ink-secondary leading-relaxed flex-1">{block.explanation}</p>
+                            <div className="flex-1 min-h-0 flex items-end pt-0.5">
+                              <OnboardingBlockExplanationTooltip blockId={block.id} explanation={block.explanation} />
+                            </div>
                           </div>
                         </div>
                         {!isRequired && (

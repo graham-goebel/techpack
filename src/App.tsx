@@ -105,6 +105,7 @@ function App() {
         onSetName={setProjectName}
         onSetDescription={setProjectDescription}
         onSetTypeDetail={setTypeDetail}
+        onSetTool={setTool}
         onToggleBlock={toggleBlock}
         onToggleIntegration={toggleIntegration}
         onAddResourceUrl={addResourceUrl}

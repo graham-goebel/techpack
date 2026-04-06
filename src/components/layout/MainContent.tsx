@@ -62,10 +62,10 @@ export function MainContent({
               <HomeNavButton onClick={onGoHome} iconSize={18} />
             </div>
           )}
-          <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-2">
+          <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-[0.15em] mb-2">
             Tech Pack
           </p>
-          <h1 className="text-[32px] sm:text-[44px] font-bold text-ink leading-[1.05] tracking-tight mb-2">
+          <h1 className="text-[32px] sm:text-[44px] font-semibold text-ink leading-[1.08] tracking-[-0.02em] mb-2">
             What are you building?
           </h1>
           <p className="text-sm text-ink-muted mb-8">
@@ -88,7 +88,7 @@ export function MainContent({
                   <div aria-hidden className="mb-3 flex items-center">
                     <ComplexityDots filled={type.tier} size="dot" />
                   </div>
-                  <h3 className="text-[15px] font-semibold text-ink tracking-tight mb-1 group-hover:text-accent transition-colors">
+                  <h3 className="text-[15px] font-medium text-ink tracking-tight mb-1 group-hover:text-accent transition-colors">
                     {type.name}
                   </h3>
                   <p className="text-[10px] text-ink-muted leading-snug mb-3">
@@ -102,7 +102,7 @@ export function MainContent({
                   </p>
 
                   <div className="flex items-center gap-1.5 text-[9px] text-ink-faint">
-                    <span className="font-bold">{typeBlocks.length}</span>
+                    <span className="font-semibold tabular-nums">{typeBlocks.length}</span>
                     <span>blocks</span>
                   </div>
                 </button>
@@ -154,11 +154,11 @@ export function MainContent({
             {mainTab === 'architecture' && (
               <div className="flex-1 min-h-0 flex flex-col gap-3 min-w-0">
                 <header className="shrink-0">
-                  <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">
+                  <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-[0.12em] mb-1">
                     Stack
                   </p>
-                  <h2 className="text-[18px] sm:text-[20px] font-bold text-ink tracking-tight mb-1.5">
-                    Your project architecture
+                  <h2 className="text-[18px] sm:text-[20px] font-semibold text-ink tracking-tight mb-1.5">
+                    Project Stack
                   </h2>
                   <p className="text-[13px] text-ink-muted leading-relaxed max-w-2xl">
                     A checklist of capability areas for your build, ordered from presentation through
@@ -167,13 +167,16 @@ export function MainContent({
                     technology choices, or collapse a section header to hide a whole layer.
                   </p>
                 </header>
-                <div className="flex-1 min-h-0 overflow-y-auto border border-rule bg-surface rounded-lg divide-y divide-rule">
+                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 min-w-0">
                 {stackGroups.map((group) => {
                   const isCollapsed = hiddenStackLayers.has(group.layerId);
                   const panelId = `stack-section-${group.layerId}`;
                   const headId = `stack-section-head-${group.layerId}`;
                   return (
-                    <section key={group.layerId} className="min-w-0">
+                    <section
+                      key={group.layerId}
+                      className="min-w-0 rounded-lg border border-rule overflow-hidden divide-y divide-rule bg-surface"
+                    >
                       <button
                         type="button"
                         onClick={() => toggleStackLayerVisibility(group.layerId)}

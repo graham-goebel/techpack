@@ -844,6 +844,7 @@ export function Sidebar({
           <>
             <SectionHeader
               label="Resources"
+              description="Add links or small files—specs, mockups, or references—so this tech pack stays grounded in your real artifacts."
               count={(config.resources ?? []).length}
               open={openSections.has('resources')}
               onToggle={() => toggle('resources')}
@@ -1144,6 +1145,7 @@ function IncludedBlockExpandedPanel({
 
 function SectionHeader({
   label,
+  description,
   count,
   open,
   onToggle,
@@ -1151,6 +1153,8 @@ function SectionHeader({
   suppressTopBorder,
 }: {
   label: string;
+  /** Shown under the title row when the section is expanded. */
+  description?: string;
   count?: number;
   open: boolean;
   onToggle: () => void;
@@ -1161,35 +1165,42 @@ function SectionHeader({
   return (
     <div
       ref={sectionRef}
-      role="button"
-      tabIndex={0}
-      onClick={onToggle}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onToggle();
-        }
-      }}
-      aria-expanded={open}
-      className={`w-full shrink-0 flex items-center gap-2.5 px-5 py-3.5 min-h-[44px] text-left hover:bg-surface-raised transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-        suppressTopBorder ? '' : 'border-t border-rule'
-      }`}
+      className={`w-full shrink-0 ${suppressTopBorder ? '' : 'border-t border-rule'}`}
     >
-      <h4 className="text-[15px] font-semibold text-ink tracking-tight flex-1 leading-tight m-0">
-        {label}
-      </h4>
-      {count !== undefined && (
-        <span className="text-[11px] text-ink-muted font-semibold tabular-nums">
-          {count}
-        </span>
-      )}
-      <svg
-        className={`h-3 w-3 shrink-0 text-ink-muted transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
-        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}
-        aria-hidden={true}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        aria-expanded={open}
+        className="w-full flex items-center gap-2.5 px-5 py-3.5 min-h-[44px] text-left hover:bg-surface-raised transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
       >
-        <path strokeLinecap="square" d="M9 5l7 7-7 7" />
-      </svg>
+        <h4 className="text-[15px] font-semibold text-ink tracking-tight flex-1 leading-tight m-0">
+          {label}
+        </h4>
+        {count !== undefined && (
+          <span className="text-[11px] text-ink-muted font-semibold tabular-nums">
+            {count}
+          </span>
+        )}
+        <svg
+          className={`h-3 w-3 shrink-0 text-ink-muted transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}
+          aria-hidden={true}
+        >
+          <path strokeLinecap="square" d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
+      {open && description ? (
+        <p className="px-5 pb-3 pt-0 text-[9px] text-ink-muted leading-snug">
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }

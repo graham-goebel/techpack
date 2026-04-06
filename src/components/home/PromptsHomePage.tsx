@@ -36,9 +36,9 @@ export function PromptsHomePage({
   return (
     <div className="min-h-screen bg-surface overflow-y-auto">
       <div className="max-w-3xl mx-auto px-6 py-12 sm:py-16 animate-fade-in">
-        <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-2">Tech Pack</p>
-        <h1 className="text-[32px] sm:text-[40px] font-bold text-ink leading-[1.05] tracking-tight mb-2">
-          Your prompts
+        <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-[0.15em] mb-2">Tech Pack</p>
+        <h1 className="text-[32px] sm:text-[40px] font-semibold text-ink leading-[1.08] tracking-[-0.02em] mb-2">
+          Tech Packs
         </h1>
         <p className="text-sm text-ink-muted mb-10 max-w-xl leading-relaxed">
           Saved tech packs live in this browser. Open one to keep editing, or start fresh. Use{' '}
