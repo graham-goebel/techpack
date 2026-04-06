@@ -115,6 +115,11 @@ export interface ProjectConfig {
   selectedIntegrationIds: string[];
   /** User-added links and dropped files for docs / references */
   resources: ProjectResource[];
+  /**
+   * When false, the full-screen onboarding wizard is shown after choosing a project type.
+   * Omitted or true = skip onboarding (default for workspaces saved before this flag existed).
+   */
+  onboardingCompleted?: boolean;
   createdAt: number;
   updatedAt: number;
 }

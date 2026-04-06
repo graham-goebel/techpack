@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { MainContent } from './components/layout/MainContent';
+import { ProjectOnboarding } from './components/onboarding/ProjectOnboarding';
 import { useProject } from './hooks/useProject';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type { ProjectConfig } from './types';
@@ -10,6 +11,7 @@ function App() {
     config,
     tier,
     setProjectType,
+    completeOnboarding,
     toggleBlock,
     setTechChoice,
     setProjectName,
@@ -37,6 +39,27 @@ function App() {
       return [...prev, config];
     });
   }, [config, setSavedConfigs]);
+
+  const inOnboarding = Boolean(config.projectTypeId && config.onboardingCompleted === false);
+
+  if (inOnboarding) {
+    return (
+      <ProjectOnboarding
+        config={config}
+        tier={tier}
+        onComplete={completeOnboarding}
+        onChangeProjectType={() => setProjectType('')}
+        onSetName={setProjectName}
+        onSetDescription={setProjectDescription}
+        onSetTypeDetail={setTypeDetail}
+        onToggleBlock={toggleBlock}
+        onToggleIntegration={toggleIntegration}
+        onAddResourceUrl={addResourceUrl}
+        onAddResourceFile={addResourceFile}
+        onRemoveResource={removeResource}
+      />
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">

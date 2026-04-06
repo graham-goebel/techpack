@@ -27,8 +27,7 @@ export function MainContent({
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
-  const [promptExpanded, setPromptExpanded] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [mainTab, setMainTab] = useState<'architecture' | 'map' | 'prompt'>('architecture');
   const [comparingBlockId, setComparingBlockId] = useState<string | null>(null);
 
   const projectType = projectTypes.find((t) => t.id === config.projectTypeId);
@@ -114,94 +113,93 @@ export function MainContent({
       return order[a.statusForTier(tier)] - order[b.statusForTier(tier)];
     });
 
+  const tabSurfaceClass =
+    mainTab === 'map' ? 'canvas-bg' : 'bg-surface-raised';
+
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden bg-surface">
-      {/* Content: canvas fills space; unified chrome matches sidebar .app-chrome-row height */}
       <div className="flex-1 min-h-0 flex flex-col">
-        <div
-          className={`border-b border-rule flex flex-1 min-h-0 flex-col ${
-            viewMode === 'map' ? 'canvas-bg' : 'bg-surface-raised'
-          }`}
-        >
-          {/* Former top chrome + Architecture bar — same min-height as sidebar masthead */}
-          <div className="app-chrome-row shrink-0 flex items-center justify-between px-5 gap-3 bg-white/70 backdrop-blur-sm border-b border-rule min-w-0">
-            <div className="min-w-0 flex-1 flex flex-col justify-center gap-1.5">
-              <div className="flex items-baseline gap-3 flex-wrap min-w-0">
-                <h3 className="text-[22px] font-semibold text-ink tracking-tight shrink-0 leading-none">
-                  Architecture
-                </h3>
-                <span className="text-[10px] font-semibold text-ink-muted uppercase tracking-wider">
-                  {projectType?.name}
-                </span>
-                <span className="text-[10px] text-ink-muted hidden sm:inline uppercase tracking-wider">
-                  {selectedBlocks.length} of {visibleBlocks.length} blocks active
-                </span>
+        <div className={`border-b border-rule flex flex-1 min-h-0 flex-col ${tabSurfaceClass}`}>
+          {/* Top chrome: tabs + meta + save — matches sidebar .app-chrome-row height */}
+          <div className="app-chrome-row shrink-0 flex flex-col justify-center gap-2 px-5 py-2 bg-white/70 backdrop-blur-sm border-b border-rule min-w-0 box-border">
+            <div className="flex items-center justify-between gap-3 min-w-0">
+              <div
+                className="flex items-center rounded border border-rule overflow-hidden shrink-0"
+                role="tablist"
+                aria-label="Workspace"
+              >
+                {(
+                  [
+                    { id: 'architecture' as const, label: 'Architecture' },
+                    { id: 'map' as const, label: 'Map' },
+                    { id: 'prompt' as const, label: 'Prompt' },
+                  ] as const
+                ).map((tab, i) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={mainTab === tab.id}
+                    id={`main-tab-${tab.id}`}
+                    onClick={() => setMainTab(tab.id)}
+                    className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                      i > 0 ? 'border-l border-rule' : ''
+                    } ${
+                      mainTab === tab.id
+                        ? 'bg-ink text-surface'
+                        : 'text-ink-muted hover:text-ink bg-surface/80'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-              <div className="flex items-center gap-3 flex-wrap text-[10px] text-ink-muted uppercase tracking-wider">
-                <span>{projectType?.tagline}</span>
-                <span className="text-rule">|</span>
-                <span>{selectedBlocks.length} blocks</span>
-                {config.selectedLibraryIds.length > 0 && (
-                  <>
-                    <span className="text-rule">|</span>
-                    <span>
-                      {config.selectedLibraryIds.length}{' '}
-                      {config.selectedLibraryIds.length === 1 ? 'library' : 'libraries'}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleSave}
-                className="border border-rule px-3 py-1.5 text-[10px] font-bold text-ink uppercase tracking-wider hover:bg-surface-raised transition-colors"
+                className="border border-rule px-3 py-1.5 text-[10px] font-bold text-ink uppercase tracking-wider hover:bg-surface-raised transition-colors shrink-0"
               >
                 {saved ? 'Saved' : 'Save'}
               </button>
-              <div className="flex items-center border border-rule" role="group" aria-label="Main workspace view">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('list')}
-                  className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors ${
-                    viewMode === 'list' ? 'bg-ink text-surface' : 'text-ink-muted hover:text-ink'
-                  }`}
-                  aria-pressed={viewMode === 'list'}
-                  title="List"
-                >
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                    <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('map')}
-                  className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors border-l border-rule ${
-                    viewMode === 'map' ? 'bg-ink text-surface' : 'text-ink-muted hover:text-ink'
-                  }`}
-                  aria-pressed={viewMode === 'map'}
-                  title="Map"
-                >
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                  </svg>
-                </button>
-              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap text-[10px] text-ink-muted uppercase tracking-wider min-w-0 leading-tight">
+              <span className="font-semibold text-ink-secondary truncate">{projectType?.name}</span>
+              <span className="text-rule shrink-0">|</span>
+              <span className="shrink-0 tabular-nums">
+                {selectedBlocks.length}/{visibleBlocks.length} blocks
+              </span>
+              {projectType?.tagline && (
+                <>
+                  <span className="text-rule shrink-0 hidden sm:inline">|</span>
+                  <span className="truncate hidden sm:inline max-w-[14rem] lg:max-w-[20rem]">
+                    {projectType.tagline}
+                  </span>
+                </>
+              )}
+              {config.selectedLibraryIds.length > 0 && (
+                <>
+                  <span className="text-rule shrink-0">|</span>
+                  <span className="shrink-0">
+                    {config.selectedLibraryIds.length}{' '}
+                    {config.selectedLibraryIds.length === 1 ? 'library' : 'libraries'}
+                  </span>
+                </>
+              )}
             </div>
           </div>
 
-          {/* List scrolls in an inset pane; map is full-bleed pan/zoom canvas */}
+          {/* Single shared content region for Architecture, Map, and Prompt */}
           <div
-            className={`flex-1 min-h-0 relative min-w-0 ${
-              viewMode === 'list'
-                ? 'overflow-y-auto m-3 sm:m-4 border border-rule bg-surface rounded-lg'
-                : 'overflow-hidden'
+            role="tabpanel"
+            id={`main-tab-panel-${mainTab}`}
+            aria-labelledby={`main-tab-${mainTab}`}
+            className={`flex-1 min-h-0 relative min-w-0 flex flex-col overflow-hidden ${
+              mainTab === 'map' ? '' : 'p-3 sm:p-4'
             }`}
           >
-            {viewMode === 'list' ? (
-              /* ──── LIST VIEW ──── */
-              <div className="divide-y divide-rule">
+            {mainTab === 'architecture' && (
+              <div className="flex-1 min-h-0 overflow-y-auto border border-rule bg-surface rounded-lg">
+                <div className="divide-y divide-rule">
                 {visibleBlocks.map((block) => {
                   const status = block.statusForTier(tier);
                   const isSelected = config.selectedBlockIds.includes(block.id);
@@ -415,8 +413,11 @@ export function MainContent({
                     </div>
                   );
                 })}
+                </div>
               </div>
-            ) : (
+            )}
+
+            {mainTab === 'map' && (
               <ArchitectureFlowCanvas
                 visibleBlocks={visibleBlocks}
                 config={config}
@@ -427,57 +428,30 @@ export function MainContent({
                 onSetTechChoice={onSetTechChoice}
               />
             )}
-          </div>
-        </div>
 
-        {/* Prompt — collapsed by default; Copy always visible; pinned to viewport bottom */}
-        <div className="shrink-0 px-6 py-5 border-t border-rule bg-surface">
-          <div
-            className={`flex items-center justify-between gap-3 ${promptExpanded ? 'mb-3' : ''}`}
-          >
-            <div className="flex items-center gap-3 min-w-0 flex-wrap">
-              <h3 className="text-[22px] font-semibold text-ink tracking-tight shrink-0">
-                Prompt
-              </h3>
-              {!promptExpanded && prompt.length > 0 && (
-                <span className="text-[10px] text-ink-muted tabular-nums">
-                  {prompt.length.toLocaleString()} chars
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => setPromptExpanded((v) => !v)}
-                className="text-[9px] font-bold text-ink-muted uppercase tracking-wider hover:text-ink transition-colors flex items-center gap-1 shrink-0"
-                aria-expanded={promptExpanded}
-              >
-                <svg
-                  className={`h-3 w-3 transition-transform ${promptExpanded ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  aria-hidden
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-                {promptExpanded ? 'Hide' : 'Expand'}
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="text-[9px] font-bold uppercase tracking-wider transition-colors shrink-0 text-ink-muted hover:text-ink"
-            >
-              {copied ? 'Copied' : 'Copy'}
-            </button>
+            {mainTab === 'prompt' && (
+              <div className="flex-1 min-h-0 flex flex-col border border-rule bg-surface rounded-lg overflow-hidden">
+                <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 border-b border-rule bg-surface-raised/60">
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider tabular-nums">
+                    {prompt.length > 0
+                      ? `${prompt.length.toLocaleString()} characters`
+                      : 'No prompt yet'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    disabled={!prompt}
+                    className="text-[10px] font-bold text-ink uppercase tracking-wider border border-rule px-3 py-1 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <pre className="flex-1 min-h-0 overflow-auto p-5 text-[12px] text-ink-secondary font-mono leading-[1.7] whitespace-pre-wrap">
+                  {prompt || 'Configure your project to generate a prompt.'}
+                </pre>
+              </div>
+            )}
           </div>
-          {promptExpanded && (
-            <div className="border border-rule">
-              <pre className="p-5 text-[12px] text-ink-secondary font-mono leading-[1.7] whitespace-pre-wrap overflow-x-auto overflow-y-auto max-h-[min(28rem,42vh)]">
-                {prompt}
-              </pre>
-            </div>
-          )}
         </div>
       </div>
     </div>

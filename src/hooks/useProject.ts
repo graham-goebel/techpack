@@ -78,6 +78,9 @@ function loadWorkspaceFromStorage(): ProjectConfig | null {
         ? (o.typeDetails as Record<string, string>)
         : {};
 
+    const onboardingCompleted =
+      typeof o.onboardingCompleted === 'boolean' ? o.onboardingCompleted : true;
+
     return {
       id: o.id,
       name: typeof o.name === 'string' ? o.name : '',
@@ -97,6 +100,7 @@ function loadWorkspaceFromStorage(): ProjectConfig | null {
         ? (o.selectedIntegrationIds as string[]).filter((id): id is string => typeof id === 'string')
         : [],
       resources: parseResources(o.resources),
+      onboardingCompleted,
       createdAt: typeof o.createdAt === 'number' ? o.createdAt : Date.now(),
       updatedAt: Date.now(),
     };
@@ -140,6 +144,7 @@ export function useProject() {
           selectedLibraryIds: [],
           selectedIntegrationIds: [],
           resources: [],
+          onboardingCompleted: undefined,
           updatedAt: Date.now(),
         };
       }
@@ -182,9 +187,18 @@ export function useProject() {
         selectedLibraryIds: [],
         selectedIntegrationIds: [],
         resources: [],
+        onboardingCompleted: false,
         updatedAt: Date.now(),
       };
     });
+  }, []);
+
+  const completeOnboarding = useCallback(() => {
+    setConfig((prev) => ({
+      ...prev,
+      onboardingCompleted: true,
+      updatedAt: Date.now(),
+    }));
   }, []);
 
   const toggleBlock = useCallback((blockId: string) => {
@@ -336,6 +350,7 @@ export function useProject() {
     config,
     tier,
     setProjectType,
+    completeOnboarding,
     toggleBlock,
     setTechChoice,
     setProjectName,

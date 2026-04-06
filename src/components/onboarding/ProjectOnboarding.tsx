@@ -1,0 +1,484 @@
+import { useEffect, useMemo, useState } from 'react';
+import type { ProjectConfig, ProjectFileResource, Tier } from '../../types';
+import { projectTypes } from '../../data/projectTypes';
+import { getTypeDetailFields } from '../../data/projectTypeDetailFields';
+import { blocks } from '../../data/blocks';
+import {
+  getVisibleIntegrations,
+  skillsShUrl,
+  type IntegrationCategory,
+  type IntegrationItem,
+} from '../../data/integrations';
+import { BlockOcticon } from '../icons/OcticonById';
+import { ComplexityDots } from '../ui/ComplexityDots';
+import { ResourcesPanel } from '../resources/ResourcesPanel';
+
+const STEPS = ['details', 'blocks', 'resources'] as const;
+type StepId = (typeof STEPS)[number];
+
+const INTEGRATION_CATEGORY_LABELS: Record<IntegrationCategory, string> = {
+  skill: 'Skills',
+  mcp: 'MCPs',
+  api: 'APIs',
+  library: 'Libraries',
+};
+
+const INTEGRATION_CATEGORY_ORDER: IntegrationCategory[] = ['skill', 'mcp', 'api', 'library'];
+
+interface ProjectOnboardingProps {
+  config: ProjectConfig;
+  tier: Tier;
+  onComplete: () => void;
+  onChangeProjectType: () => void;
+  onSetName: (name: string) => void;
+  onSetDescription: (desc: string) => void;
+  onSetTypeDetail: (fieldId: string, value: string) => void;
+  onToggleBlock: (blockId: string) => void;
+  onToggleIntegration: (integrationId: string) => void;
+  onAddResourceUrl: (label: string, url: string) => void;
+  onAddResourceFile: (file: Omit<ProjectFileResource, 'id' | 'kind'>) => void;
+  onRemoveResource: (id: string) => void;
+}
+
+export function ProjectOnboarding({
+  config,
+  tier,
+  onComplete,
+  onChangeProjectType,
+  onSetName,
+  onSetDescription,
+  onSetTypeDetail,
+  onToggleBlock,
+  onToggleIntegration,
+  onAddResourceUrl,
+  onAddResourceFile,
+  onRemoveResource,
+}: ProjectOnboardingProps) {
+  const [step, setStep] = useState<StepId>('details');
+  const [integrationTab, setIntegrationTab] = useState<IntegrationCategory>('skill');
+
+  const projectType = projectTypes.find((t) => t.id === config.projectTypeId);
+  const typeDetailFields = config.projectTypeId ? getTypeDetailFields(config.projectTypeId) : [];
+  const typeDetails = config.typeDetails ?? {};
+
+  const visibleBlocks = useMemo(
+    () =>
+      blocks
+        .filter((b) => b.statusForTier(tier) !== 'hidden')
+        .sort((a, b) => {
+          const order = { required: 0, recommended: 1, optional: 2, hidden: 3 };
+          return order[a.statusForTier(tier)] - order[b.statusForTier(tier)];
+        }),
+    [tier],
+  );
+
+  const visibleIntegrations = useMemo(
+    () =>
+      config.projectTypeId
+        ? getVisibleIntegrations(config.projectTypeId, tier, config.projectDescription)
+        : [],
+    [config.projectTypeId, config.projectDescription, tier],
+  );
+
+  const integrationsByCategory = useMemo(() => {
+    const map = new Map<IntegrationCategory, IntegrationItem[]>();
+    for (const c of INTEGRATION_CATEGORY_ORDER) map.set(c, []);
+    for (const item of visibleIntegrations) {
+      map.get(item.category)?.push(item);
+    }
+    return map;
+  }, [visibleIntegrations]);
+
+  useEffect(() => {
+    const countIn = (c: IntegrationCategory) =>
+      visibleIntegrations.filter((i) => i.category === c).length;
+    setIntegrationTab((prev) => {
+      if (countIn(prev) > 0) return prev;
+      return INTEGRATION_CATEGORY_ORDER.find((c) => countIn(c) > 0) ?? prev;
+    });
+  }, [visibleIntegrations]);
+
+  const stepIndex = STEPS.indexOf(step);
+  const goNext = () => {
+    if (step === 'details') setStep('blocks');
+    else if (step === 'blocks') setStep('resources');
+    else onComplete();
+  };
+  const goBack = () => {
+    if (step === 'details') onChangeProjectType();
+    else if (step === 'blocks') setStep('details');
+    else setStep('blocks');
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex flex-col bg-surface animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
+    >
+      <header className="shrink-0 border-b border-rule bg-white/80 backdrop-blur-sm px-5 py-4 sm:px-8">
+        <div className="max-w-3xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-1">
+              Setup · Step {stepIndex + 1} of {STEPS.length}
+            </p>
+            <h1 id="onboarding-title" className="text-xl sm:text-2xl font-bold text-ink tracking-tight truncate">
+              {step === 'details' && 'Project details'}
+              {step === 'blocks' && 'Architecture blocks'}
+              {step === 'resources' && 'Resources & integrations'}
+            </h1>
+            {projectType && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-xs text-ink-muted">{projectType.name}</span>
+                <ComplexityDots filled={projectType.tier} size="pill" />
+              </div>
+            )}
+          </div>
+          <nav className="flex gap-1.5" aria-label="Onboarding progress">
+            {STEPS.map((s, i) => (
+              <span
+                key={s}
+                className={`h-1.5 flex-1 sm:w-16 sm:flex-none rounded-full transition-colors ${
+                  i <= stepIndex ? 'bg-ink' : 'bg-rule'
+                }`}
+                title={s}
+              />
+            ))}
+          </nav>
+        </div>
+      </header>
+
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-5 py-8 sm:px-8 sm:py-10 pb-32">
+          {step === 'details' && (
+            <div className="space-y-6 animate-fade-in">
+              <p className="text-sm text-ink-secondary leading-relaxed">
+                Give this tech pack a name and describe what you are building. The extra fields below are tailored to
+                your project type and help downstream suggestions stay relevant.
+              </p>
+              <div className="border border-rule bg-surface-raised/50 rounded-lg overflow-hidden divide-y divide-rule">
+                <div className="p-4 sm:p-5">
+                  <label className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={config.name}
+                    onChange={(e) => onSetName(e.target.value)}
+                    placeholder="Untitled project"
+                    className="w-full bg-transparent text-base text-ink placeholder:text-ink-faint focus:outline-none"
+                    autoFocus
+                  />
+                </div>
+                <div className="p-4 sm:p-5">
+                  <label className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={config.projectDescription}
+                    onChange={(e) => onSetDescription(e.target.value)}
+                    placeholder="What does it do? Who is it for?"
+                    rows={3}
+                    className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none resize-none leading-relaxed"
+                  />
+                </div>
+                {typeDetailFields.map((field) => (
+                  <div key={field.id} className="p-4 sm:p-5">
+                    <label className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+                      {field.label}
+                    </label>
+                    {field.input === 'chips' && field.options ? (
+                      <div className="flex flex-wrap gap-2" role="group" aria-label={field.label}>
+                        {field.options
+                          .filter((opt) => opt.value !== '')
+                          .map((opt) => {
+                            const selected = (typeDetails[field.id] ?? '') === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => onSetTypeDetail(field.id, selected ? '' : opt.value)}
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors ${
+                                  selected
+                                    ? 'bg-ink text-surface border-ink'
+                                    : 'bg-surface text-ink-secondary border-rule hover:border-neutral-300'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    ) : field.input === 'select' && field.options ? (
+                      <select
+                        value={typeDetails[field.id] ?? ''}
+                        onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
+                        className="w-full max-w-md bg-surface border border-rule rounded-md px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/15"
+                      >
+                        {field.options.map((opt) => (
+                          <option key={opt.value || 'placeholder'} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.multiline ? (
+                      <textarea
+                        value={typeDetails[field.id] ?? ''}
+                        onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
+                        placeholder={field.placeholder}
+                        rows={field.rows ?? 2}
+                        className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none resize-none leading-relaxed"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={typeDetails[field.id] ?? ''}
+                        onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
+                        placeholder={field.placeholder}
+                        className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 'blocks' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="rounded-lg border border-accent/25 bg-accent-light/40 px-4 py-4 sm:px-5 sm:py-5">
+                <p className="text-[10px] font-bold text-accent uppercase tracking-[0.12em] mb-2">What are blocks?</p>
+                <p className="text-sm text-ink-secondary leading-relaxed">
+                  <strong className="text-ink font-semibold">Blocks</strong> are the major pillars of your stack — things
+                  like visual language, interactivity, routing, or a database. Each block maps to real technology
+                  choices in the next screen. Required blocks are always on; recommended and optional ones let you shape
+                  the architecture before you see the full tech stack.
+                </p>
+              </div>
+
+              <ul className="space-y-2 list-none p-0 m-0">
+                {visibleBlocks.map((block) => {
+                  const status = block.statusForTier(tier);
+                  const isSelected = config.selectedBlockIds.includes(block.id);
+                  const isRequired = status === 'required';
+                  const active = isRequired || isSelected;
+
+                  return (
+                    <li
+                      key={block.id}
+                      className={`border border-rule rounded-lg overflow-hidden transition-opacity ${
+                        !active && !isRequired ? 'opacity-70' : ''
+                      }`}
+                    >
+                      <div className="flex gap-3 p-4 sm:p-5 bg-surface hover:bg-surface-raised/80 transition-colors">
+                        <span className="shrink-0 text-ink-muted mt-0.5" aria-hidden>
+                          <BlockOcticon blockId={block.id} size={20} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-baseline gap-2 gap-y-1">
+                            <span className={`text-[15px] font-semibold ${active ? 'text-ink' : 'text-ink-muted'}`}>
+                              {block.name}
+                            </span>
+                            <span
+                              className={`text-[9px] font-bold uppercase tracking-wider ${
+                                status === 'required'
+                                  ? 'text-ink-muted'
+                                  : status === 'recommended'
+                                    ? 'text-accent'
+                                    : 'text-ink-faint'
+                              }`}
+                            >
+                              {status === 'required' ? 'Required' : status === 'recommended' ? 'Recommended' : 'Optional'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-ink-muted leading-relaxed mt-1.5">{block.summary}</p>
+                          <p className="text-[11px] text-ink-secondary leading-relaxed mt-2">{block.explanation}</p>
+                        </div>
+                        <div className="shrink-0 flex flex-col items-end justify-center gap-2">
+                          {!isRequired && (
+                            <button
+                              type="button"
+                              onClick={() => onToggleBlock(block.id)}
+                              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 border transition-colors min-w-[5.5rem] ${
+                                isSelected
+                                  ? 'border-ink bg-ink text-surface'
+                                  : 'border-rule text-ink-muted hover:border-ink/30 hover:text-ink'
+                              }`}
+                            >
+                              {isSelected ? 'Included' : 'Add'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {step === 'resources' && (
+            <div className="space-y-8 animate-fade-in">
+              <p className="text-sm text-ink-secondary leading-relaxed">
+                Link specs, mockups, or drop small reference files. Optionally pick integrations (skills, MCPs, APIs)
+                suggested for your type and description. You can skip this step and refine everything later in the
+                sidebar — next you will land on the full <strong className="text-ink font-semibold">tech stack</strong>{' '}
+                view.
+              </p>
+
+              <section>
+                <h2 className="text-[11px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-3">Resources</h2>
+                <div className="border border-rule rounded-lg overflow-hidden bg-surface-raised/30">
+                  <ResourcesPanel
+                    resources={config.resources ?? []}
+                    onAddUrl={onAddResourceUrl}
+                    onAddFile={onAddResourceFile}
+                    onRemove={onRemoveResource}
+                  />
+                </div>
+              </section>
+
+              {visibleIntegrations.length > 0 ? (
+                <section>
+                  <h2 className="text-[11px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+                    Integrations
+                  </h2>
+                  <p className="text-xs text-ink-muted mb-3 leading-relaxed">
+                    Suggested for your project. Links may open the skills directory or vendor docs.
+                  </p>
+                  <div className="border border-rule bg-surface rounded-lg overflow-hidden">
+                    <div
+                      role="tablist"
+                      aria-label="Integration categories"
+                      className="flex flex-wrap border-b border-rule bg-surface-raised gap-px"
+                    >
+                      {INTEGRATION_CATEGORY_ORDER.map((cat) => {
+                        const items = integrationsByCategory.get(cat) ?? [];
+                        if (items.length === 0) return null;
+                        const selectedHere = items.filter((i) =>
+                          config.selectedIntegrationIds.includes(i.id),
+                        ).length;
+                        const isActive = integrationTab === cat;
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            role="tab"
+                            aria-selected={isActive}
+                            onClick={() => setIntegrationTab(cat)}
+                            className={`flex-1 min-w-[4.5rem] px-2 py-2.5 text-[9px] font-bold uppercase tracking-[0.08em] transition-colors border-b-2 -mb-px ${
+                              isActive
+                                ? 'text-ink border-ink bg-surface'
+                                : 'text-ink-muted border-transparent hover:text-ink-secondary'
+                            }`}
+                          >
+                            {INTEGRATION_CATEGORY_LABELS[cat]}
+                            {selectedHere > 0 ? (
+                              <span className="ml-1 font-mono text-accent normal-case">{selectedHere}</span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div
+                      role="tabpanel"
+                      className="max-h-[min(22rem,50vh)] overflow-y-auto divide-y divide-rule"
+                    >
+                      {(integrationsByCategory.get(integrationTab) ?? []).map((item) => {
+                        const isChosen = config.selectedIntegrationIds.includes(item.id);
+                        const href = item.skillsShPath ? skillsShUrl(item.skillsShPath) : item.url;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => onToggleIntegration(item.id)}
+                            className={`w-full text-left px-4 py-3 flex gap-3 transition-colors ${
+                              isChosen ? 'bg-surface-raised' : 'hover:bg-surface-raised/60'
+                            }`}
+                          >
+                            <div
+                              className={`mt-0.5 h-4 w-4 shrink-0 border flex items-center justify-center ${
+                                isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
+                              }`}
+                            >
+                              {isChosen && (
+                                <svg
+                                  className="h-2.5 w-2.5 text-surface"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={3}
+                                  aria-hidden
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className={`text-sm font-semibold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>
+                                {item.name}
+                              </span>
+                              <p className="text-xs text-ink-muted mt-0.5 leading-snug">{item.description}</p>
+                              {href && (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-block mt-2 text-[10px] font-semibold text-accent hover:underline"
+                                >
+                                  Open link ↗
+                                </a>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
+              ) : (
+                <p className="text-xs text-ink-muted border border-dashed border-rule rounded-lg px-4 py-3">
+                  No integration suggestions yet. Add more detail in the first step to surface skills and APIs, or skip
+                  and configure later.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <footer className="shrink-0 border-t border-rule bg-surface/95 backdrop-blur-sm px-5 py-4 sm:px-8">
+        <div className="max-w-3xl mx-auto flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            onClick={goBack}
+            className="text-xs font-bold uppercase tracking-wider text-ink-muted hover:text-ink py-2.5 sm:py-0 text-center sm:text-left"
+          >
+            {step === 'details' ? '← Change project type' : '← Back'}
+          </button>
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            {step === 'resources' && (
+              <button
+                type="button"
+                onClick={onComplete}
+                className="order-2 sm:order-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-ink-muted border border-rule hover:bg-surface-raised transition-colors"
+              >
+                Skip to tech stack
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={goNext}
+              className="order-1 sm:order-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider bg-ink text-surface hover:opacity-90 transition-opacity"
+            >
+              {step === 'resources' ? 'Finish & view stack' : 'Continue'}
+            </button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
