@@ -14,6 +14,7 @@ interface MainContentProps {
   onToggleBlock: (blockId: string) => void;
   onSetTechChoice: (blockId: string, optionId: string) => void;
   onSetProjectType: (typeId: string) => void;
+  onGoHome?: () => void;
 }
 
 export function MainContent({
@@ -23,6 +24,7 @@ export function MainContent({
   onToggleBlock,
   onSetTechChoice,
   onSetProjectType,
+  onGoHome,
 }: MainContentProps) {
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -54,6 +56,15 @@ export function MainContent({
     return (
       <div className="flex-1 overflow-y-auto bg-surface">
         <div className="max-w-4xl mx-auto px-8 py-12 animate-fade-in">
+          {onGoHome && (
+            <button
+              type="button"
+              onClick={onGoHome}
+              className="text-[10px] font-bold text-accent uppercase tracking-wider hover:underline mb-6"
+            >
+              ← All prompts
+            </button>
+          )}
           <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-2">
             Tech Pack
           </p>
@@ -154,13 +165,24 @@ export function MainContent({
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                onClick={handleSave}
-                className="border border-rule px-3 py-1.5 text-[10px] font-bold text-ink uppercase tracking-wider hover:bg-surface-raised transition-colors shrink-0"
-              >
-                {saved ? 'Saved' : 'Save'}
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {onGoHome && (
+                  <button
+                    type="button"
+                    onClick={onGoHome}
+                    className="text-[10px] font-bold text-accent uppercase tracking-wider hover:underline px-1 hidden sm:inline"
+                  >
+                    All prompts
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="border border-rule px-3 py-1.5 text-[10px] font-bold text-ink uppercase tracking-wider hover:bg-surface-raised transition-colors"
+                >
+                  {saved ? 'Saved' : 'Save'}
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap text-[10px] text-ink-muted uppercase tracking-wider min-w-0 leading-tight">
               <span className="font-semibold text-ink-secondary truncate">{projectType?.name}</span>

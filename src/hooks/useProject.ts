@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ProjectConfig, ProjectFileResource, ProjectResource, Tier } from '../types';
+import type { ProjectConfig, ProjectFileResource, Tier } from '../types';
 import { blocks } from '../data/blocks';
 import { techOptions } from '../data/techOptions';
 import { blockLibraries } from '../data/libraries';
-import { projectTypes } from '../data/projectTypes';
 import { modelsForToolAndTier, toolRecommendations } from '../data/models';
+import { parseProjectConfig } from '../utils/projectConfigParse';
 
 const WORKSPACE_STORAGE_KEY = 'tech-pack-workspace';
-const validProjectTypeIds = new Set(projectTypes.map((t) => t.id));
 
 function createEmptyConfig(): ProjectConfig {
   return {
@@ -28,82 +27,14 @@ function createEmptyConfig(): ProjectConfig {
   };
 }
 
-function parseResources(raw: unknown): ProjectResource[] {
-  if (!Array.isArray(raw)) return [];
-  const out: ProjectResource[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue;
-    const o = item as Record<string, unknown>;
-    const id = typeof o.id === 'string' ? o.id : '';
-    if (!id) continue;
-    if (o.kind === 'url') {
-      const url = typeof o.url === 'string' ? o.url.trim() : '';
-      if (!url) continue;
-      const label = typeof o.label === 'string' ? o.label.trim() : url;
-      out.push({ id, kind: 'url', label: label || url, url });
-    } else if (o.kind === 'file') {
-      const fileName = typeof o.fileName === 'string' ? o.fileName : '';
-      const dataUrl = typeof o.dataUrl === 'string' ? o.dataUrl : '';
-      if (!fileName || !dataUrl.startsWith('data:')) continue;
-      const mimeType = typeof o.mimeType === 'string' ? o.mimeType : 'application/octet-stream';
-      const sizeBytes = typeof o.sizeBytes === 'number' && o.sizeBytes >= 0 ? o.sizeBytes : 0;
-      out.push({ id, kind: 'file', fileName, mimeType, sizeBytes, dataUrl });
-    }
-  }
-  return out;
-}
-
 function loadWorkspaceFromStorage(): ProjectConfig | null {
   try {
     const raw = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return null;
-    const o = parsed as Record<string, unknown>;
-    if (typeof o.projectTypeId !== 'string' || !o.projectTypeId) return null;
-    const projectTypeId =
-      o.projectTypeId === 'style-tile' ? 'mood-board' : o.projectTypeId;
-    if (!validProjectTypeIds.has(projectTypeId)) return null;
-    if (typeof o.id !== 'string') return null;
-
-    const selectedBlockIds = Array.isArray(o.selectedBlockIds)
-      ? o.selectedBlockIds.filter((id): id is string => typeof id === 'string')
-      : [];
-    const techChoices =
-      o.techChoices && typeof o.techChoices === 'object' && !Array.isArray(o.techChoices)
-        ? (o.techChoices as Record<string, string>)
-        : {};
-    const typeDetails =
-      o.typeDetails && typeof o.typeDetails === 'object' && !Array.isArray(o.typeDetails)
-        ? (o.typeDetails as Record<string, string>)
-        : {};
-
-    const onboardingCompleted =
-      typeof o.onboardingCompleted === 'boolean' ? o.onboardingCompleted : true;
-
-    return {
-      id: o.id,
-      name: typeof o.name === 'string' ? o.name : '',
-      projectTypeId,
-      selectedBlockIds,
-      techChoices,
-      projectDescription: typeof o.projectDescription === 'string' ? o.projectDescription : '',
-      typeDetails,
-      selectedModelId: typeof o.selectedModelId === 'string' ? o.selectedModelId : '',
-      selectedToolIds: Array.isArray(o.selectedToolIds)
-        ? (o.selectedToolIds as string[]).filter((id): id is string => typeof id === 'string').slice(0, 1)
-        : [],
-      selectedLibraryIds: Array.isArray(o.selectedLibraryIds)
-        ? (o.selectedLibraryIds as string[]).filter((id): id is string => typeof id === 'string')
-        : [],
-      selectedIntegrationIds: Array.isArray(o.selectedIntegrationIds)
-        ? (o.selectedIntegrationIds as string[]).filter((id): id is string => typeof id === 'string')
-        : [],
-      resources: parseResources(o.resources),
-      onboardingCompleted,
-      createdAt: typeof o.createdAt === 'number' ? o.createdAt : Date.now(),
-      updatedAt: Date.now(),
-    };
+    const config = parseProjectConfig(parsed, true);
+    if (!config) return null;
+    return { ...config, updatedAt: Date.now() };
   } catch {
     return null;
   }
@@ -341,6 +272,39 @@ export function useProject() {
     });
   }, []);
 
+  const hydrateWorkspace = useCallback((data: unknown) => {
+    const parsed = parseProjectConfig(data, false);
+    if (!parsed) return;
+    const tier = getTierForType(parsed.projectTypeId);
+    const allowedTools = toolRecommendations
+      .filter((t) => t.tiers.includes(tier))
+      .sort((a, b) => (a.id === 'cursor' ? -1 : b.id === 'cursor' ? 1 : 0));
+    const toolId = parsed.selectedToolIds[0];
+    const toolOk = toolId && allowedTools.some((t) => t.id === toolId);
+    const nextToolIds = toolOk && toolId ? [toolId] : allowedTools.length ? [allowedTools[0].id] : [];
+    const primaryToolId = nextToolIds[0];
+    const models = modelsForToolAndTier(primaryToolId, tier);
+    const modelOk = models.some((m) => m.id === parsed.selectedModelId);
+    const nextModelId = modelOk ? parsed.selectedModelId : (models[0]?.id ?? '');
+
+    setConfig({
+      ...parsed,
+      selectedToolIds: nextToolIds,
+      selectedModelId: nextModelId,
+      onboardingCompleted: parsed.projectTypeId ? true : parsed.onboardingCompleted,
+      updatedAt: Date.now(),
+    });
+  }, []);
+
+  const resetWorkspace = useCallback(() => {
+    setConfig(createEmptyConfig());
+    try {
+      window.localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const tier: Tier = useMemo(
     () => getTierForType(config.projectTypeId),
     [config.projectTypeId],
@@ -363,6 +327,8 @@ export function useProject() {
     addResourceUrl,
     addResourceFile,
     removeResource,
+    hydrateWorkspace,
+    resetWorkspace,
   };
 }
 

@@ -38,6 +38,7 @@ interface ProjectOnboardingProps {
   onAddResourceUrl: (label: string, url: string) => void;
   onAddResourceFile: (file: Omit<ProjectFileResource, 'id' | 'kind'>) => void;
   onRemoveResource: (id: string) => void;
+  onGoHome?: () => void;
 }
 
 export function ProjectOnboarding({
@@ -53,6 +54,7 @@ export function ProjectOnboarding({
   onAddResourceUrl,
   onAddResourceFile,
   onRemoveResource,
+  onGoHome,
 }: ProjectOnboardingProps) {
   const [step, setStep] = useState<StepId>('details');
   const [integrationTab, setIntegrationTab] = useState<IntegrationCategory>('skill');
@@ -119,7 +121,16 @@ export function ProjectOnboarding({
     >
       <header className="shrink-0 border-b border-rule bg-white/80 backdrop-blur-sm px-5 py-4 sm:px-8">
         <div className="max-w-3xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
+            {onGoHome && (
+              <button
+                type="button"
+                onClick={onGoHome}
+                className="text-[10px] font-bold text-accent uppercase tracking-wider hover:underline mb-2"
+              >
+                ← All prompts
+              </button>
+            )}
             <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-1">
               Setup · Step {stepIndex + 1} of {STEPS.length}
             </p>
@@ -258,7 +269,7 @@ export function ProjectOnboarding({
                 </p>
               </div>
 
-              <ul className="space-y-2 list-none p-0 m-0">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 list-none p-0 m-0 items-stretch">
                 {visibleBlocks.map((block) => {
                   const status = block.statusForTier(tier);
                   const isSelected = config.selectedBlockIds.includes(block.id);
@@ -268,40 +279,42 @@ export function ProjectOnboarding({
                   return (
                     <li
                       key={block.id}
-                      className={`border border-rule rounded-lg overflow-hidden transition-opacity ${
+                      className={`flex min-h-0 transition-opacity ${
                         !active && !isRequired ? 'opacity-70' : ''
                       }`}
                     >
-                      <div className="flex gap-3 p-4 sm:p-5 bg-surface hover:bg-surface-raised/80 transition-colors">
-                        <span className="shrink-0 text-ink-muted mt-0.5" aria-hidden>
-                          <BlockOcticon blockId={block.id} size={20} />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-baseline gap-2 gap-y-1">
-                            <span className={`text-[15px] font-semibold ${active ? 'text-ink' : 'text-ink-muted'}`}>
-                              {block.name}
-                            </span>
-                            <span
-                              className={`text-[9px] font-bold uppercase tracking-wider ${
-                                status === 'required'
-                                  ? 'text-ink-muted'
-                                  : status === 'recommended'
-                                    ? 'text-accent'
-                                    : 'text-ink-faint'
-                              }`}
-                            >
-                              {status === 'required' ? 'Required' : status === 'recommended' ? 'Recommended' : 'Optional'}
-                            </span>
+                      <div className="flex flex-col flex-1 w-full min-h-0 border border-rule rounded-lg overflow-hidden bg-surface hover:bg-surface-raised/80 transition-colors">
+                        <div className="flex gap-3 p-4 sm:p-5 flex-1 min-h-0">
+                          <span className="shrink-0 text-ink-muted mt-0.5" aria-hidden>
+                            <BlockOcticon blockId={block.id} size={20} />
+                          </span>
+                          <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+                            <div className="flex flex-wrap items-baseline gap-2 gap-y-1">
+                              <span className={`text-[14px] sm:text-[15px] font-semibold leading-snug ${active ? 'text-ink' : 'text-ink-muted'}`}>
+                                {block.name}
+                              </span>
+                              <span
+                                className={`text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                                  status === 'required'
+                                    ? 'text-ink-muted'
+                                    : status === 'recommended'
+                                      ? 'text-accent'
+                                      : 'text-ink-faint'
+                                }`}
+                              >
+                                {status === 'required' ? 'Required' : status === 'recommended' ? 'Recommended' : 'Optional'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-ink-muted leading-relaxed">{block.summary}</p>
+                            <p className="text-[11px] text-ink-secondary leading-relaxed flex-1">{block.explanation}</p>
                           </div>
-                          <p className="text-xs text-ink-muted leading-relaxed mt-1.5">{block.summary}</p>
-                          <p className="text-[11px] text-ink-secondary leading-relaxed mt-2">{block.explanation}</p>
                         </div>
-                        <div className="shrink-0 flex flex-col items-end justify-center gap-2">
-                          {!isRequired && (
+                        {!isRequired && (
+                          <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-0 flex justify-end border-t border-rule/60 bg-surface/80">
                             <button
                               type="button"
                               onClick={() => onToggleBlock(block.id)}
-                              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 border transition-colors min-w-[5.5rem] ${
+                              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 border transition-colors w-full sm:w-auto min-w-[5.5rem] ${
                                 isSelected
                                   ? 'border-ink bg-ink text-surface'
                                   : 'border-rule text-ink-muted hover:border-ink/30 hover:text-ink'
@@ -309,8 +322,8 @@ export function ProjectOnboarding({
                             >
                               {isSelected ? 'Included' : 'Add'}
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </li>
                   );

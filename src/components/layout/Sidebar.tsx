@@ -33,6 +33,7 @@ interface SidebarProps {
   onAddResourceUrl: (label: string, url: string) => void;
   onAddResourceFile: (file: Omit<ProjectFileResource, 'id' | 'kind'>) => void;
   onRemoveResource: (id: string) => void;
+  onGoHome?: () => void;
 }
 
 type SectionId = 'type' | 'project' | 'blocks' | 'resources' | 'integrations';
@@ -62,6 +63,7 @@ export function Sidebar({
   onAddResourceUrl,
   onAddResourceFile,
   onRemoveResource,
+  onGoHome,
 }: SidebarProps) {
   const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set());
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
@@ -208,8 +210,17 @@ export function Sidebar({
         >
           {config.name.trim() || 'Untitled'}
         </div>
-        <div className="text-[11px] font-medium text-ink-muted uppercase tracking-[0.15em] leading-none mt-1.5">
-          Tech Pack
+        <div className="text-[11px] font-medium text-ink-muted uppercase tracking-[0.15em] leading-none mt-1.5 flex items-center justify-between gap-2 min-w-0">
+          <span className="truncate">Tech Pack</span>
+          {onGoHome && (
+            <button
+              type="button"
+              onClick={onGoHome}
+              className="shrink-0 text-[9px] font-bold text-accent uppercase tracking-wider hover:underline"
+            >
+              All prompts
+            </button>
+          )}
         </div>
       </div>
 
