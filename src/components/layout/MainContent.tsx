@@ -5,7 +5,7 @@ import { blocks } from '../../data/blocks';
 import { techOptions } from '../../data/techOptions';
 import { generatePrompt } from '../../utils/promptGenerator';
 import { ArchitectureFlowCanvas } from '../architecture/ArchitectureFlowCanvas';
-import { BlockOcticon, ProjectTypeOcticon } from '../icons/OcticonById';
+import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
 interface MainContentProps {
   config: ProjectConfig;
@@ -78,8 +78,7 @@ export function MainContent({
                   onClick={() => onSetProjectType(type.id)}
                   className="text-left p-5 bg-transparent border border-rule/25 hover:bg-white/45 hover:backdrop-blur-sm hover:border-rule/40 transition-colors group"
                 >
-                  <div aria-hidden className="mb-3 flex items-center gap-3">
-                    <ProjectTypeOcticon typeId={type.id} size={22} className="text-ink-muted" />
+                  <div aria-hidden className="mb-3 flex items-center">
                     <ComplexityDots filled={type.tier} size="dot" />
                   </div>
                   <h3 className="text-[15px] font-semibold text-ink tracking-tight mb-1 group-hover:text-accent transition-colors">
