@@ -2,24 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Block, ProjectConfig, Tier } from '../../types';
 import { techOptions } from '../../data/techOptions';
 import { BlockOcticon } from '../icons/OcticonById';
+import { STACK_LAYER_DEFS } from '../../data/stackLayers';
 
 const NODE_W = 200;
 const NODE_H = 104;
 const COL_GAP = 44;
 const ROW_GAP = 72;
 const CANVAS_PAD = 60;
-
-/**
- * Architecture topology — blocks grouped by layer, ordered left-to-right
- * within each row for minimal edge crossings.
- */
-const LAYER_DEFS: { label: string; ids: string[] }[] = [
-  { label: 'Presentation', ids: ['visual-ui', 'markup-structure', 'accessibility', 'seo-performance'] },
-  { label: 'Client', ids: ['routing', 'functionality', 'state-management'] },
-  { label: 'Server', ids: ['auth', 'backend-api', 'security'] },
-  { label: 'Data & Services', ids: ['database', 'file-storage', 'payments', 'email-notifications'] },
-  { label: 'Operations', ids: ['env-secrets', 'hosting', 'ci-cd', 'analytics', 'testing', 'documentation', 'compliance'] },
-];
 
 /** Cross-layer connections — source feeds / is consumed by target */
 const TOPOLOGY_EDGES: [string, string][] = [
@@ -69,7 +58,7 @@ export function ArchitectureFlowCanvas({
 
     const layers: Block[][] = [];
     const layerLabels: string[] = [];
-    for (const def of LAYER_DEFS) {
+    for (const def of STACK_LAYER_DEFS) {
       const row = def.ids
         .filter((id) => visibleIds.has(id))
         .map((id) => blockMap.get(id)!)
@@ -80,7 +69,7 @@ export function ArchitectureFlowCanvas({
       }
     }
 
-    const assigned = new Set(LAYER_DEFS.flatMap((d) => d.ids));
+    const assigned = new Set(STACK_LAYER_DEFS.flatMap((d) => d.ids));
     const extra = visibleBlocks.filter((b) => !assigned.has(b.id));
     if (extra.length > 0) {
       layers.push(extra);

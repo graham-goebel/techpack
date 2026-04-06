@@ -1,16 +1,17 @@
-import { useState, useMemo } from 'react';
-import type { ProjectConfig, TechOption, Tier } from '../../types';
+import { useState, useMemo, useCallback } from 'react';
+import type { Block, ProjectConfig, TechOption, Tier } from '../../types';
 import { projectTypes } from '../../data/projectTypes';
 import { blocks } from '../../data/blocks';
 import { techOptions } from '../../data/techOptions';
+import { groupVisibleBlocksByStackLayer } from '../../data/stackLayers';
 import { generatePrompt } from '../../utils/promptGenerator';
 import { ArchitectureFlowCanvas } from '../architecture/ArchitectureFlowCanvas';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
+import { HomeNavButton } from '../ui/HomeNavButton';
 interface MainContentProps {
   config: ProjectConfig;
   tier: Tier;
-  onSave: () => void;
   onToggleBlock: (blockId: string) => void;
   onSetTechChoice: (blockId: string, optionId: string) => void;
   onSetProjectType: (typeId: string) => void;
@@ -20,20 +21,26 @@ interface MainContentProps {
 export function MainContent({
   config,
   tier,
-  onSave,
   onToggleBlock,
   onSetTechChoice,
   onSetProjectType,
   onGoHome,
 }: MainContentProps) {
   const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState<'architecture' | 'map' | 'prompt'>('architecture');
   const [comparingBlockId, setComparingBlockId] = useState<string | null>(null);
+  const [hiddenStackLayers, setHiddenStackLayers] = useState<Set<string>>(() => new Set());
 
-  const projectType = projectTypes.find((t) => t.id === config.projectTypeId);
-  const selectedBlocks = blocks.filter((b) => config.selectedBlockIds.includes(b.id));
+  const toggleStackLayerVisibility = useCallback((layerId: string) => {
+    setHiddenStackLayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(layerId)) next.delete(layerId);
+      else next.add(layerId);
+      return next;
+    });
+  }, []);
+
   const prompt = useMemo(() => {
     if (!config.projectTypeId) return '';
     return generatePrompt(config, tier);
@@ -46,24 +53,14 @@ export function MainContent({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSave = () => {
-    onSave();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
   if (!config.projectTypeId) {
     return (
-      <div className="flex-1 overflow-y-auto bg-surface">
-        <div className="max-w-4xl mx-auto px-8 py-12 animate-fade-in">
+      <div className="flex-1 min-w-0 w-full overflow-y-auto bg-surface">
+        <div className="max-w-7xl 2xl:max-w-[90rem] mx-auto px-8 sm:px-10 lg:px-12 py-12 animate-fade-in">
           {onGoHome && (
-            <button
-              type="button"
-              onClick={onGoHome}
-              className="text-[10px] font-bold text-accent uppercase tracking-wider hover:underline mb-6"
-            >
-              ← All prompts
-            </button>
+            <div className="mb-6">
+              <HomeNavButton onClick={onGoHome} iconSize={18} />
+            </div>
           )}
           <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-2">
             Tech Pack
@@ -117,322 +114,128 @@ export function MainContent({
     );
   }
 
-  const visibleBlocks = blocks
-    .filter((b) => b.statusForTier(tier) !== 'hidden')
-    .sort((a, b) => {
-      const order = { required: 0, recommended: 1, optional: 2, hidden: 3 };
-      return order[a.statusForTier(tier)] - order[b.statusForTier(tier)];
-    });
+  const visibleBlocks = useMemo(
+    () =>
+      blocks
+        .filter((b) => b.statusForTier(tier) !== 'hidden')
+        .sort((a, b) => {
+          const order = { required: 0, recommended: 1, optional: 2, hidden: 3 };
+          return order[a.statusForTier(tier)] - order[b.statusForTier(tier)];
+        }),
+    [tier]
+  );
+
+  const stackGroups = useMemo(
+    () => groupVisibleBlocksByStackLayer(visibleBlocks),
+    [visibleBlocks]
+  );
 
   const tabSurfaceClass =
     mainTab === 'map' ? 'canvas-bg' : 'bg-surface-raised';
 
+  const stackOrPromptTabPanelPad =
+    'px-6 pb-5 pt-16 sm:px-10 sm:pb-6 sm:pt-[4.5rem] lg:px-12 lg:pb-8';
+
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden bg-surface">
+    <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-surface">
       <div className="flex-1 min-h-0 flex flex-col">
         <div className={`border-b border-rule flex flex-1 min-h-0 flex-col ${tabSurfaceClass}`}>
-          {/* Top chrome: tabs + meta + save — matches sidebar .app-chrome-row height */}
-          <div className="app-chrome-row shrink-0 flex flex-col justify-center gap-2 px-5 py-2 bg-white/70 backdrop-blur-sm border-b border-rule min-w-0 box-border">
-            <div className="flex items-center justify-between gap-3 min-w-0">
-              <div
-                className="flex items-center rounded border border-rule overflow-hidden shrink-0"
-                role="tablist"
-                aria-label="Workspace"
-              >
-                {(
-                  [
-                    { id: 'architecture' as const, label: 'Architecture' },
-                    { id: 'map' as const, label: 'Map' },
-                    { id: 'prompt' as const, label: 'Prompt' },
-                  ] as const
-                ).map((tab, i) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={mainTab === tab.id}
-                    id={`main-tab-${tab.id}`}
-                    onClick={() => setMainTab(tab.id)}
-                    className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                      i > 0 ? 'border-l border-rule' : ''
-                    } ${
-                      mainTab === tab.id
-                        ? 'bg-ink text-surface'
-                        : 'text-ink-muted hover:text-ink bg-surface/80'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {onGoHome && (
-                  <button
-                    type="button"
-                    onClick={onGoHome}
-                    className="text-[10px] font-bold text-accent uppercase tracking-wider hover:underline px-1 hidden sm:inline"
-                  >
-                    All prompts
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="border border-rule px-3 py-1.5 text-[10px] font-bold text-ink uppercase tracking-wider hover:bg-surface-raised transition-colors"
-                >
-                  {saved ? 'Saved' : 'Save'}
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap text-[10px] text-ink-muted uppercase tracking-wider min-w-0 leading-tight">
-              <span className="font-semibold text-ink-secondary truncate">{projectType?.name}</span>
-              <span className="text-rule shrink-0">|</span>
-              <span className="shrink-0 tabular-nums">
-                {selectedBlocks.length}/{visibleBlocks.length} blocks
-              </span>
-              {projectType?.tagline && (
-                <>
-                  <span className="text-rule shrink-0 hidden sm:inline">|</span>
-                  <span className="truncate hidden sm:inline max-w-[14rem] lg:max-w-[20rem]">
-                    {projectType.tagline}
-                  </span>
-                </>
-              )}
-              {config.selectedLibraryIds.length > 0 && (
-                <>
-                  <span className="text-rule shrink-0">|</span>
-                  <span className="shrink-0">
-                    {config.selectedLibraryIds.length}{' '}
-                    {config.selectedLibraryIds.length === 1 ? 'library' : 'libraries'}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Single shared content region for Architecture, Map, and Prompt */}
+          {/* Single shared content region for Stack, Map, and Prompt */}
           <div
             role="tabpanel"
             id={`main-tab-panel-${mainTab}`}
             aria-labelledby={`main-tab-${mainTab}`}
             className={`flex-1 min-h-0 relative min-w-0 flex flex-col overflow-hidden ${
-              mainTab === 'map' ? '' : 'p-3 sm:p-4'
+              mainTab === 'map'
+                ? 'pt-16 sm:pt-[4.5rem]'
+                : stackOrPromptTabPanelPad
             }`}
           >
             {mainTab === 'architecture' && (
-              <div className="flex-1 min-h-0 overflow-y-auto border border-rule bg-surface rounded-lg">
-                <div className="divide-y divide-rule">
-                {visibleBlocks.map((block) => {
-                  const status = block.statusForTier(tier);
-                  const isSelected = config.selectedBlockIds.includes(block.id);
-                  const isRequired = status === 'required';
-                  const isExpanded = expandedBlockId === block.id;
-                  const chosenOptionId = config.techChoices[block.id];
-                  const chosenOption = techOptions.find((o) => o.id === chosenOptionId);
-                  const blockOptions = techOptions.filter((o) => o.blockId === block.id);
-
+              <div className="flex-1 min-h-0 flex flex-col gap-3 min-w-0">
+                <header className="shrink-0">
+                  <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">
+                    Stack
+                  </p>
+                  <h2 className="text-[18px] sm:text-[20px] font-bold text-ink tracking-tight mb-1.5">
+                    Your project architecture
+                  </h2>
+                  <p className="text-[13px] text-ink-muted leading-relaxed max-w-2xl">
+                    A checklist of capability areas for your build, ordered from presentation through
+                    client, server, data, and operations—the same layers as the map. Required items stay
+                    on; add optional blocks when you need them. Expand a row for context, tradeoffs, and
+                    technology choices, or collapse a section header to hide a whole layer.
+                  </p>
+                </header>
+                <div className="flex-1 min-h-0 overflow-y-auto border border-rule bg-surface rounded-lg divide-y divide-rule">
+                {stackGroups.map((group) => {
+                  const isCollapsed = hiddenStackLayers.has(group.layerId);
+                  const panelId = `stack-section-${group.layerId}`;
+                  const headId = `stack-section-head-${group.layerId}`;
                   return (
-                    <div
-                      key={block.id}
-                      className={`transition-colors ${!isSelected && !isRequired ? 'opacity-60' : ''}`}
-                    >
-                      {/* Row */}
-                      <div className="flex items-center gap-2.5 px-5 py-5 min-h-[4.5rem] hover:bg-surface-raised transition-colors">
-                        <span className="shrink-0 text-ink-muted flex items-center justify-center" aria-hidden>
-                          <BlockOcticon blockId={block.id} size={18} />
+                    <section key={group.layerId} className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleStackLayerVisibility(group.layerId)}
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left bg-surface-raised/50 hover:bg-surface-raised transition-colors"
+                        aria-expanded={!isCollapsed}
+                        aria-controls={panelId}
+                        id={headId}
+                      >
+                        <div className="min-w-0 flex items-baseline gap-2 flex-wrap">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-ink">
+                            {group.label}
+                          </span>
+                          <span className="text-[10px] text-ink-muted tabular-nums">
+                            {group.blocks.length} block{group.blocks.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <span className="shrink-0 flex items-center gap-2">
+                          <span
+                            className={`text-[9px] font-bold uppercase tracking-wider ${
+                              isCollapsed ? 'text-ink-faint' : 'text-ink-muted'
+                            }`}
+                          >
+                            {isCollapsed ? 'Hidden' : 'Shown'}
+                          </span>
+                          <svg
+                            className={`h-3.5 w-3.5 text-ink-muted transition-transform shrink-0 ${
+                              isCollapsed ? '' : 'rotate-180'
+                            }`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            aria-hidden
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
                         </span>
-
-                        {/* Name + summary */}
-                        <button
-                          type="button"
-                          onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
-                          className="flex-1 min-w-0 text-left"
+                      </button>
+                      {!isCollapsed && (
+                        <div
+                          id={panelId}
+                          role="region"
+                          aria-labelledby={headId}
+                          className="divide-y divide-rule"
                         >
-                          <div className="flex items-baseline gap-2">
-                            <span className={`text-[13px] font-semibold tracking-tight ${isSelected || isRequired ? 'text-ink' : 'text-neutral-400'}`}>
-                              {block.name}
-                            </span>
-                            <span className={`text-[9px] font-bold uppercase tracking-wider ${
-                              status === 'required' ? 'text-ink-muted' : status === 'recommended' ? 'text-accent' : 'text-ink-faint'
-                            }`}>
-                              {status === 'required' ? 'Required' : status === 'recommended' ? 'Recommended' : 'Optional'}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
-                            {block.summary}
-                          </p>
-                        </button>
-
-                        {/* Tech chip */}
-                        {isSelected && chosenOption && (
-                          <TechChoiceChip option={chosenOption} instanceId={block.id} />
-                        )}
-
-                        {/* Add/remove or expand chevron */}
-                        {!isRequired && !isSelected ? (
-                          <button
-                            type="button"
-                            onClick={() => onToggleBlock(block.id)}
-                            className="shrink-0 h-5 w-5 flex items-center justify-center text-ink-faint hover:text-ink transition-colors"
-                            aria-label="Add to project"
-                            title="Add"
-                          >
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" d="M12 5v14M5 12h14" />
-                            </svg>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
-                            className="shrink-0 h-5 w-5 flex items-center justify-center text-ink-faint hover:text-ink transition-colors"
-                            aria-expanded={isExpanded}
-                            aria-label="Expand details"
-                          >
-                            <svg
-                              className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Expanded detail panel */}
-                      {isExpanded && isSelected && (
-                        <div className="bg-surface-raised border-t border-rule animate-fade-in">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-rule">
-                            <div className="bg-surface-raised px-5 py-4">
-                              <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">What is this</p>
-                              <p className="text-[11px] text-ink-secondary leading-relaxed">{block.explanation}</p>
-                            </div>
-                            <div className="bg-surface-raised px-5 py-4">
-                              <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">Why</p>
-                              <p className="text-[11px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
-                            </div>
-                          </div>
-                          {blockOptions.length > 0 && (() => {
-                            const isComparing = comparingBlockId === block.id;
-                            return (
-                              <div className="border-t border-rule">
-                                {/* Chosen option summary */}
-                                <div className="px-5 py-4">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">Technology</p>
-                                    <button
-                                      type="button"
-                                      onClick={() => setComparingBlockId(isComparing ? null : block.id)}
-                                      className="text-[9px] font-bold text-ink-muted uppercase tracking-wider hover:text-ink transition-colors flex items-center gap-1"
-                                    >
-                                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01" />
-                                      </svg>
-                                      {isComparing ? 'Hide comparison' : 'Help me decide'}
-                                    </button>
-                                  </div>
-
-                                  {/* Selected tech chips */}
-                                  <div className="flex flex-wrap gap-1.5 mb-2">
-                                    {blockOptions.map((option) => {
-                                      const isChosen = chosenOptionId === option.id;
-                                      return (
-                                        <button
-                                          key={option.id}
-                                          type="button"
-                                          onClick={() => onSetTechChoice(block.id, option.id)}
-                                          className={`px-2.5 py-1 text-[10px] font-semibold border transition-colors ${
-                                            isChosen
-                                              ? 'bg-ink text-surface border-ink'
-                                              : 'bg-surface text-ink-secondary border-rule hover:bg-white hover:border-neutral-300'
-                                          }`}
-                                          aria-pressed={isChosen}
-                                        >
-                                          {option.name}
-                                          {option.isDefault && !isChosen && (
-                                            <span className="ml-1 text-[8px] text-accent font-bold">Default</span>
-                                          )}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-
-                                  {/* Why this one */}
-                                  {chosenOption && !isComparing && (
-                                    <div className="mt-2">
-                                      <p className="text-[11px] text-ink-secondary leading-relaxed mb-1.5">
-                                        {chosenOption.description}
-                                      </p>
-                                      {chosenOption.pros.length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5">
-                                          {chosenOption.pros.map((pro, i) => (
-                                            <span key={i} className="text-[9px] text-ink-muted bg-surface border border-rule px-1.5 py-0.5">
-                                              {pro}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Comparison table */}
-                                {isComparing && (
-                                  <div className="border-t border-rule animate-fade-in">
-                                    {blockOptions.map((option) => {
-                                      const isChosen = chosenOptionId === option.id;
-                                      return (
-                                        <button
-                                          key={option.id}
-                                          type="button"
-                                          onClick={() => onSetTechChoice(block.id, option.id)}
-                                          className={`w-full text-left px-5 py-4 border-b border-rule last:border-b-0 transition-colors ${
-                                            isChosen ? 'bg-surface' : 'hover:bg-surface-raised'
-                                          }`}
-                                        >
-                                          <div className="flex items-center gap-2 mb-1">
-                                            <div className={`h-2.5 w-2.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                                              isChosen ? 'border-ink bg-ink' : 'border-neutral-300'
-                                            }`}>
-                                              {isChosen && <span className="h-1 w-1 rounded-full bg-white" />}
-                                            </div>
-                                            <span className={`text-[12px] font-bold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>
-                                              {option.name}
-                                            </span>
-                                            {option.isDefault && (
-                                              <span className="text-[8px] font-bold text-accent uppercase">Default</span>
-                                            )}
-                                          </div>
-                                          <p className="text-[11px] text-ink-muted leading-relaxed ml-[18px] mb-1.5">
-                                            {option.description}
-                                          </p>
-                                          <div className="ml-[18px] flex flex-wrap gap-x-4 gap-y-1">
-                                            <div className="flex flex-wrap gap-1">
-                                              {option.pros.map((pro, i) => (
-                                                <span key={i} className="text-[9px] text-green-700 bg-green-50 border border-green-100 px-1.5 py-px">
-                                                  + {pro}
-                                                </span>
-                                              ))}
-                                            </div>
-                                            <div className="flex flex-wrap gap-1">
-                                              {option.cons.map((con, i) => (
-                                                <span key={i} className="text-[9px] text-neutral-500 bg-neutral-50 border border-neutral-100 px-1.5 py-px">
-                                                  − {con}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
+                          {group.blocks.map((block) => (
+                            <StackBlockRow
+                              key={block.id}
+                              block={block}
+                              tier={tier}
+                              config={config}
+                              expandedBlockId={expandedBlockId}
+                              setExpandedBlockId={setExpandedBlockId}
+                              comparingBlockId={comparingBlockId}
+                              setComparingBlockId={setComparingBlockId}
+                              onToggleBlock={onToggleBlock}
+                              onSetTechChoice={onSetTechChoice}
+                            />
+                          ))}
                         </div>
                       )}
-                    </div>
+                    </section>
                   );
                 })}
                 </div>
@@ -473,9 +276,319 @@ export function MainContent({
                 </pre>
               </div>
             )}
+
+            <div
+              className={`pointer-events-none absolute top-4 z-40 flex justify-center sm:top-5 ${
+                mainTab === 'map' ? 'inset-x-3 sm:inset-x-4' : 'inset-x-6 sm:inset-x-10 lg:inset-x-12'
+              }`}
+            >
+              <nav
+                className="pointer-events-auto flex max-w-full items-center overflow-hidden rounded-lg border border-rule bg-white/90 shadow-lg shadow-black/10 backdrop-blur-md"
+                role="tablist"
+                aria-label="Workspace"
+              >
+                {(
+                  [
+                    { id: 'architecture' as const, label: 'Stack' },
+                    { id: 'map' as const, label: 'Map' },
+                    { id: 'prompt' as const, label: 'Prompt' },
+                  ] as const
+                ).map((tab, i) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={mainTab === tab.id}
+                    id={`main-tab-${tab.id}`}
+                    onClick={() => setMainTab(tab.id)}
+                    className={`min-w-0 shrink px-2.5 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-colors sm:px-3 ${
+                      i > 0 ? 'border-l border-rule' : ''
+                    } ${
+                      mainTab === tab.id
+                        ? 'bg-ink text-surface'
+                        : 'text-ink-muted hover:text-ink bg-white/50 hover:bg-white/80'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function StackBlockRow({
+  block,
+  tier,
+  config,
+  expandedBlockId,
+  setExpandedBlockId,
+  comparingBlockId,
+  setComparingBlockId,
+  onToggleBlock,
+  onSetTechChoice,
+}: {
+  block: Block;
+  tier: Tier;
+  config: ProjectConfig;
+  expandedBlockId: string | null;
+  setExpandedBlockId: React.Dispatch<React.SetStateAction<string | null>>;
+  comparingBlockId: string | null;
+  setComparingBlockId: React.Dispatch<React.SetStateAction<string | null>>;
+  onToggleBlock: (blockId: string) => void;
+  onSetTechChoice: (blockId: string, optionId: string) => void;
+}) {
+  const status = block.statusForTier(tier);
+  const isSelected = config.selectedBlockIds.includes(block.id);
+  const isRequired = status === 'required';
+  const isExpanded = expandedBlockId === block.id;
+  const chosenOptionId = config.techChoices[block.id];
+  const chosenOption = techOptions.find((o) => o.id === chosenOptionId);
+  const blockOptions = techOptions.filter((o) => o.blockId === block.id);
+
+  return (
+    <div
+      className={`transition-colors ${!isSelected && !isRequired ? 'opacity-60' : ''}`}
+    >
+      <div className="flex items-center gap-2.5 px-5 py-5 min-h-[4.5rem] hover:bg-surface-raised transition-colors">
+        <span className="shrink-0 text-ink-muted flex items-center justify-center" aria-hidden>
+          <BlockOcticon blockId={block.id} size={18} />
+        </span>
+
+        <button
+          type="button"
+          onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
+          className="flex-1 min-w-0 text-left"
+        >
+          <div className="flex items-baseline gap-2">
+            <span
+              className={`text-[13px] font-semibold tracking-tight ${
+                isSelected || isRequired ? 'text-ink' : 'text-neutral-400'
+              }`}
+            >
+              {block.name}
+            </span>
+            <span
+              className={`text-[9px] font-bold uppercase tracking-wider ${
+                status === 'required'
+                  ? 'text-ink-muted'
+                  : status === 'recommended'
+                    ? 'text-accent'
+                    : 'text-ink-faint'
+              }`}
+            >
+              {status === 'required'
+                ? 'Required'
+                : status === 'recommended'
+                  ? 'Recommended'
+                  : 'Optional'}
+            </span>
+          </div>
+          <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
+            {block.summary}
+          </p>
+        </button>
+
+        {isSelected && chosenOption && (
+          <TechChoiceChip option={chosenOption} instanceId={block.id} />
+        )}
+
+        {!isRequired && !isSelected ? (
+          <button
+            type="button"
+            onClick={() => onToggleBlock(block.id)}
+            className="shrink-0 h-5 w-5 flex items-center justify-center text-ink-faint hover:text-ink transition-colors"
+            aria-label="Add to project"
+            title="Add"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
+            className="shrink-0 h-5 w-5 flex items-center justify-center text-ink-faint hover:text-ink transition-colors"
+            aria-expanded={isExpanded}
+            aria-label="Expand details"
+          >
+            <svg
+              className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {isExpanded && isSelected && (
+        <div className="bg-surface-raised border-t border-rule animate-fade-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-rule">
+            <div className="bg-surface-raised px-5 py-4">
+              <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">
+                What is this
+              </p>
+              <p className="text-[11px] text-ink-secondary leading-relaxed">{block.explanation}</p>
+            </div>
+            <div className="bg-surface-raised px-5 py-4">
+              <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">Why</p>
+              <p className="text-[11px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
+            </div>
+          </div>
+          {blockOptions.length > 0 &&
+            (() => {
+              const isComparing = comparingBlockId === block.id;
+              return (
+                <div className="border-t border-rule">
+                  <div className="px-5 py-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">
+                        Technology
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setComparingBlockId(isComparing ? null : block.id)}
+                        className="text-[9px] font-bold text-ink-muted uppercase tracking-wider hover:text-ink transition-colors flex items-center gap-1"
+                      >
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          aria-hidden
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01"
+                          />
+                        </svg>
+                        {isComparing ? 'Hide comparison' : 'Help me decide'}
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {blockOptions.map((option) => {
+                        const isChosen = chosenOptionId === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => onSetTechChoice(block.id, option.id)}
+                            className={`px-2.5 py-1 text-[10px] font-semibold border transition-colors ${
+                              isChosen
+                                ? 'bg-ink text-surface border-ink'
+                                : 'bg-surface text-ink-secondary border-rule hover:bg-white hover:border-neutral-300'
+                            }`}
+                            aria-pressed={isChosen}
+                          >
+                            {option.name}
+                            {option.isDefault && !isChosen && (
+                              <span className="ml-1 text-[8px] text-accent font-bold">Default</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {chosenOption && !isComparing && (
+                      <div className="mt-2">
+                        <p className="text-[11px] text-ink-secondary leading-relaxed mb-1.5">
+                          {chosenOption.description}
+                        </p>
+                        {chosenOption.pros.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {chosenOption.pros.map((pro, i) => (
+                              <span
+                                key={i}
+                                className="text-[9px] text-ink-muted bg-surface border border-rule px-1.5 py-0.5"
+                              >
+                                {pro}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {isComparing && (
+                    <div className="border-t border-rule animate-fade-in">
+                      {blockOptions.map((option) => {
+                        const isChosen = chosenOptionId === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => onSetTechChoice(block.id, option.id)}
+                            className={`w-full text-left px-5 py-4 border-b border-rule last:border-b-0 transition-colors ${
+                              isChosen ? 'bg-surface' : 'hover:bg-surface-raised'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <div
+                                className={`h-2.5 w-2.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                                  isChosen ? 'border-ink bg-ink' : 'border-neutral-300'
+                                }`}
+                              >
+                                {isChosen && <span className="h-1 w-1 rounded-full bg-white" />}
+                              </div>
+                              <span
+                                className={`text-[12px] font-bold ${
+                                  isChosen ? 'text-ink' : 'text-ink-secondary'
+                                }`}
+                              >
+                                {option.name}
+                              </span>
+                              {option.isDefault && (
+                                <span className="text-[8px] font-bold text-accent uppercase">Default</span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-ink-muted leading-relaxed ml-[18px] mb-1.5">
+                              {option.description}
+                            </p>
+                            <div className="ml-[18px] flex flex-wrap gap-x-4 gap-y-1">
+                              <div className="flex flex-wrap gap-1">
+                                {option.pros.map((pro, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-[9px] text-green-700 bg-green-50 border border-green-100 px-1.5 py-px"
+                                  >
+                                    + {pro}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {option.cons.map((con, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-[9px] text-neutral-500 bg-neutral-50 border border-neutral-100 px-1.5 py-px"
+                                  >
+                                    − {con}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+        </div>
+      )}
     </div>
   );
 }

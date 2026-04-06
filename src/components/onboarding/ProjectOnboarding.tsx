@@ -12,6 +12,7 @@ import {
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
 import { ResourcesPanel } from '../resources/ResourcesPanel';
+import { HomeNavButton } from '../ui/HomeNavButton';
 
 const STEPS = ['details', 'blocks', 'resources'] as const;
 type StepId = (typeof STEPS)[number];
@@ -119,18 +120,14 @@ export function ProjectOnboarding({
       aria-modal="true"
       aria-labelledby="onboarding-title"
     >
-      <header className="shrink-0 border-b border-rule bg-white/80 backdrop-blur-sm px-5 py-4 sm:px-8">
-        <div className="max-w-3xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <header className="relative shrink-0 border-b border-rule bg-white/80 backdrop-blur-sm px-5 py-4 sm:px-8">
+        {onGoHome && (
+          <div className="absolute right-5 top-4 z-10 sm:right-8">
+            <HomeNavButton onClick={onGoHome} iconSize={18} />
+          </div>
+        )}
+        <div className="max-w-3xl mx-auto flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pr-12 sm:pr-14">
           <div className="min-w-0 flex-1">
-            {onGoHome && (
-              <button
-                type="button"
-                onClick={onGoHome}
-                className="text-[10px] font-bold text-accent uppercase tracking-wider hover:underline mb-2"
-              >
-                ← All prompts
-              </button>
-            )}
             <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-1">
               Setup · Step {stepIndex + 1} of {STEPS.length}
             </p>

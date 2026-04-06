@@ -110,35 +110,36 @@ function App() {
         onAddResourceUrl={addResourceUrl}
         onAddResourceFile={addResourceFile}
         onRemoveResource={removeResource}
-        onGoHome={goHome}
       />
     );
   }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        config={config}
-        tier={tier}
-        onSetProjectType={setProjectType}
-        onToggleBlock={toggleBlock}
-        onSetTechChoice={setTechChoice}
-        onSetName={setProjectName}
-        onSetDescription={setProjectDescription}
-        onSetTypeDetail={setTypeDetail}
-        onSetModel={setModel}
-        onSetTool={setTool}
-        onToggleLibrary={toggleLibrary}
-        onToggleIntegration={toggleIntegration}
-        onAddResourceUrl={addResourceUrl}
-        onAddResourceFile={addResourceFile}
-        onRemoveResource={removeResource}
-        onGoHome={goHome}
-      />
+      {config.projectTypeId ? (
+        <Sidebar
+          config={config}
+          tier={tier}
+          onSetProjectType={setProjectType}
+          onToggleBlock={toggleBlock}
+          onSetTechChoice={setTechChoice}
+          onSetName={setProjectName}
+          onSetDescription={setProjectDescription}
+          onSetTypeDetail={setTypeDetail}
+          onSetModel={setModel}
+          onSetTool={setTool}
+          onToggleLibrary={toggleLibrary}
+          onToggleIntegration={toggleIntegration}
+          onAddResourceUrl={addResourceUrl}
+          onAddResourceFile={addResourceFile}
+          onRemoveResource={removeResource}
+          onSave={handleSave}
+          onGoHome={goHome}
+        />
+      ) : null}
       <MainContent
         config={config}
         tier={tier}
-        onSave={handleSave}
         onToggleBlock={toggleBlock}
         onSetTechChoice={setTechChoice}
         onSetProjectType={setProjectType}

@@ -15,6 +15,7 @@ import {
 import { CheckIcon } from '@primer/octicons-react';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
+import { HomeNavButton } from '../ui/HomeNavButton';
 import { ResourcesPanel } from '../resources/ResourcesPanel';
 
 interface SidebarProps {
@@ -33,6 +34,7 @@ interface SidebarProps {
   onAddResourceUrl: (label: string, url: string) => void;
   onAddResourceFile: (file: Omit<ProjectFileResource, 'id' | 'kind'>) => void;
   onRemoveResource: (id: string) => void;
+  onSave: () => void;
   onGoHome?: () => void;
 }
 
@@ -63,9 +65,11 @@ export function Sidebar({
   onAddResourceUrl,
   onAddResourceFile,
   onRemoveResource,
+  onSave,
   onGoHome,
 }: SidebarProps) {
   const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set());
+  const [saved, setSaved] = useState(false);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
   const [projectTypeMenuOpen, setProjectTypeMenuOpen] = useState(false);
   const projectTypeMenuRef = useRef<HTMLDivElement>(null);
@@ -157,6 +161,8 @@ export function Sidebar({
       !config.selectedBlockIds.includes(b.id),
   );
 
+  const selectedBlocksForMeta = blocks.filter((b) => config.selectedBlockIds.includes(b.id));
+
   const typeDetailFields = config.projectTypeId
     ? getTypeDetailFields(config.projectTypeId)
     : [];
@@ -200,8 +206,14 @@ export function Sidebar({
     });
   }, [visibleIntegrations]);
 
+  const handleSave = useCallback(() => {
+    onSave();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }, [onSave]);
+
   return (
-    <aside className="w-[304px] shrink-0 border-r border-rule bg-surface flex flex-col h-screen overflow-hidden">
+    <aside className="relative w-[304px] shrink-0 border-r border-rule bg-surface flex flex-col h-screen overflow-hidden">
       {/* Masthead — same height + border as main chrome row */}
       <div className="app-chrome-row shrink-0 flex flex-col justify-center px-5 border-b border-rule-strong min-w-0">
         <div
@@ -210,23 +222,35 @@ export function Sidebar({
         >
           {config.name.trim() || 'Untitled'}
         </div>
-        <div className="text-[11px] font-medium text-ink-muted uppercase tracking-[0.15em] leading-none mt-1.5 flex items-center justify-between gap-2 min-w-0">
-          <span className="truncate">Tech Pack</span>
-          {onGoHome && (
-            <button
-              type="button"
-              onClick={onGoHome}
-              className="shrink-0 text-[9px] font-bold text-accent uppercase tracking-wider hover:underline"
-            >
-              All prompts
-            </button>
+        <div className="mt-1.5 min-w-0">
+          {selectedProjectType ? (
+            <div className="min-w-0 flex items-center gap-2 flex-wrap text-[10px] text-ink-muted uppercase tracking-wider leading-snug">
+              <span className="font-semibold text-ink-secondary">{selectedProjectType.name}</span>
+              <span className="text-rule shrink-0">|</span>
+              <span className="shrink-0 tabular-nums">
+                {selectedBlocksForMeta.length}/{visibleBlocks.length} blocks
+              </span>
+              {config.selectedLibraryIds.length > 0 && (
+                <>
+                  <span className="text-rule shrink-0">|</span>
+                  <span className="shrink-0">
+                    {config.selectedLibraryIds.length}{' '}
+                    {config.selectedLibraryIds.length === 1 ? 'library' : 'libraries'}
+                  </span>
+                </>
+              )}
+            </div>
+          ) : (
+            <span className="text-[11px] font-medium text-ink-muted uppercase tracking-[0.15em] leading-snug min-w-0 truncate block">
+              Tech Pack
+            </span>
           )}
         </div>
       </div>
 
       {/* Scrollable sections — min-h-full + trailing flex spacer keeps blocks top-aligned and fills viewport */}
       <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-24">
           <div className="flex min-h-full flex-col">
         {/* ── OVERVIEW ────────────────────────────── */}
         <SectionHeader
@@ -973,6 +997,29 @@ export function Sidebar({
         )}
             <div className="flex-1 grow basis-0 min-h-0 shrink-0" aria-hidden />
           </div>
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute bottom-4 left-4 z-50 flex flex-col gap-2">
+        <div
+          className="pointer-events-auto flex flex-col gap-2 rounded-lg border border-rule bg-white/90 p-2 shadow-lg shadow-black/10 backdrop-blur-md"
+          role="group"
+          aria-label="Quick actions"
+        >
+          {onGoHome && (
+            <HomeNavButton
+              onClick={onGoHome}
+              iconSize={18}
+              className="border-transparent p-2 text-accent hover:border-rule hover:bg-accent-light/40 hover:text-accent"
+            />
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            className="border border-rule px-3 py-2 text-[10px] font-bold text-ink uppercase tracking-wider hover:bg-surface-raised transition-colors whitespace-nowrap"
+          >
+            {saved ? 'Saved' : 'Save'}
+          </button>
         </div>
       </div>
     </aside>
