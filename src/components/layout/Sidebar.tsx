@@ -63,9 +63,7 @@ export function Sidebar({
   onAddResourceFile,
   onRemoveResource,
 }: SidebarProps) {
-  const [openSections, setOpenSections] = useState<Set<SectionId>>(
-    new Set(['type', 'project', 'resources']),
-  );
+  const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set());
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
   const [projectTypeMenuOpen, setProjectTypeMenuOpen] = useState(false);
   const projectTypeMenuRef = useRef<HTMLDivElement>(null);
