@@ -12,6 +12,7 @@ import {
   type IntegrationCategory,
   type IntegrationItem,
 } from '../../data/integrations';
+import { CheckIcon } from '@primer/octicons-react';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
 import { ResourcesPanel } from '../resources/ResourcesPanel';
@@ -630,7 +631,7 @@ export function Sidebar({
                                 type="button"
                                 onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
                                 aria-describedby={tileDescId}
-                                className="w-full min-h-[60px] text-left px-3 py-3 pr-9 hover:bg-surface-raised transition-colors flex items-center gap-2.5 relative"
+                                className="w-full min-h-[60px] text-left px-3 py-3 pr-11 hover:bg-surface-raised transition-colors flex items-center gap-2.5 relative"
                               >
                                 {!isRequired && (
                                   <button
@@ -639,7 +640,7 @@ export function Sidebar({
                                       e.stopPropagation();
                                       onToggleBlock(block.id);
                                     }}
-                                    className="absolute top-2 right-2 h-3.5 w-3.5 text-ink-faint hover:text-accent transition-colors z-10"
+                                    className="absolute top-1/2 right-2.5 z-10 flex h-4 w-4 -translate-y-1/2 items-center justify-center text-ink-faint opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto hover:text-accent"
                                     aria-label="Remove from project"
                                     title="Remove"
                                   >
@@ -648,6 +649,14 @@ export function Sidebar({
                                     </svg>
                                   </button>
                                 )}
+                                <span
+                                  className={`pointer-events-none absolute right-2.5 top-1/2 z-[1] -translate-y-1/2 text-accent transition-opacity duration-150 ${
+                                    isRequired ? '' : 'opacity-100 group-hover:opacity-0 group-focus-within:opacity-0'
+                                  }`}
+                                  aria-hidden
+                                >
+                                  <CheckIcon size={14} />
+                                </span>
                                 <span className="shrink-0 text-ink-muted flex items-center justify-center" aria-hidden>
                                   <BlockOcticon blockId={block.id} size={18} />
                                 </span>
@@ -656,7 +665,7 @@ export function Sidebar({
                                     {block.name}
                                   </div>
                                   {techForPreview ? (
-                                    <div className="text-[11px] font-semibold text-ink-secondary leading-snug line-clamp-2 w-full pr-1">
+                                    <div className="text-[11px] text-ink-muted leading-snug line-clamp-2 w-full pr-1">
                                       {techForPreview.name}
                                     </div>
                                   ) : null}
@@ -666,7 +675,7 @@ export function Sidebar({
                             {!isExpanded && (
                               <div
                                 role="tooltip"
-                                className="pointer-events-none absolute z-[70] left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[9px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+                                className="pointer-events-none absolute z-[70] left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
                               >
                                 {block.summary}
                               </div>
@@ -733,7 +742,7 @@ export function Sidebar({
                                       e.stopPropagation();
                                       onToggleBlock(block.id);
                                     }}
-                                    className="absolute top-2 right-2 h-4 w-4 text-ink-faint hover:text-ink transition-colors z-10"
+                                    className="absolute top-1/2 right-2.5 -translate-y-1/2 h-4 w-4 flex items-center justify-center text-ink-faint hover:text-ink transition-colors z-10"
                                     aria-label={`Add ${block.name} to project`}
                                     title="Add to project"
                                   >
@@ -749,7 +758,7 @@ export function Sidebar({
                                       {block.name}
                                     </div>
                                     {techForPreview ? (
-                                      <div className="text-[11px] font-semibold text-ink-secondary leading-snug line-clamp-2 w-full pr-1">
+                                      <div className="text-[11px] text-ink-muted leading-snug line-clamp-2 w-full pr-1">
                                         {techForPreview.name}
                                       </div>
                                     ) : null}
@@ -759,7 +768,7 @@ export function Sidebar({
                               {!isExpanded && (
                                 <div
                                   role="tooltip"
-                                  className="pointer-events-none absolute z-[70] left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[9px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+                                  className="pointer-events-none absolute z-[70] left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
                                 >
                                   {block.summary}
                                 </div>

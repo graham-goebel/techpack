@@ -396,7 +396,7 @@ export function ArchitectureFlowCanvas({
             <div
               key={block.id}
               data-flow-node
-              className="absolute flex flex-col bg-white border border-neutral-200 shadow-sm transition-opacity"
+              className="absolute flex flex-col bg-surface border border-rule transition-opacity"
               style={{
                 left: pos.x,
                 top: pos.y,
@@ -406,65 +406,69 @@ export function ArchitectureFlowCanvas({
               onPointerDown={(e) => e.stopPropagation()}
             >
               <div
-                className={`flex items-center gap-2 px-2.5 py-2 border-b border-neutral-200 ${
-                  isSelected ? 'bg-neutral-50' : 'bg-white'
-                } ${!isSelected ? 'opacity-60' : ''}`}
+                className={`flex items-center gap-2 px-3 py-3 ${!isSelected ? 'opacity-60' : ''}`}
               >
                 {!isRequired && (
                   <button
                     type="button"
                     onClick={() => onToggleBlock(block.id)}
                     className={`h-3.5 w-3.5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      isSelected ? 'border-ink bg-ink' : 'border-neutral-300 bg-white hover:border-neutral-400'
+                      isSelected ? 'border-ink bg-ink' : 'border-rule bg-surface hover:border-rule-strong'
                     }`}
                     aria-pressed={isSelected}
                     aria-label={isSelected ? 'Included' : 'Include'}
                   >
-                    {isSelected && <span className="h-1 w-1 rounded-full bg-white" />}
+                    {isSelected && <span className="h-1 w-1 rounded-full bg-surface" />}
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => onExpandToggle(isExpanded ? null : block.id)}
-                  className="flex-1 flex items-center gap-1.5 min-w-0 text-left"
+                  className="flex-1 min-w-0 text-left"
                 >
-                  <span className="shrink-0 text-ink-muted flex items-center" aria-hidden>
-                    <BlockOcticon blockId={block.id} size={14} />
-                  </span>
-                  <span
-                    className={`text-[9px] font-bold uppercase tracking-wider truncate ${
-                      isSelected ? 'text-ink' : 'text-neutral-400'
-                    }`}
-                  >
-                    {block.name}
-                  </span>
-                </button>
-                <span
-                  className={`text-[7px] font-bold uppercase tracking-wider shrink-0 ${
-                    status === 'required'
-                      ? 'text-ink-muted'
-                      : status === 'recommended'
-                        ? 'text-accent'
-                        : 'text-ink-faint'
-                  }`}
-                >
-                  {status === 'required' ? 'Req' : status === 'recommended' ? 'Rec' : 'Opt'}
-                </span>
-              </div>
-              {isSelected && (
-                <button
-                  type="button"
-                  onClick={() => onExpandToggle(isExpanded ? null : block.id)}
-                  className="w-full text-left px-2.5 py-2"
-                >
-                  {chosenOption ? (
-                    <p className="text-[10px] font-semibold text-ink-secondary truncate">{chosenOption.name}</p>
-                  ) : (
-                    <p className="text-[9px] text-ink-faint italic">Choose technology →</p>
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="shrink-0 text-ink-muted flex items-center" aria-hidden>
+                      <BlockOcticon blockId={block.id} size={16} />
+                    </span>
+                    <span
+                      className={`text-[12px] font-semibold tracking-tight leading-snug ${
+                        isSelected || isRequired ? 'text-ink' : 'text-neutral-400'
+                      }`}
+                    >
+                      {block.name}
+                    </span>
+                    <span
+                      className={`text-[9px] font-semibold shrink-0 ${
+                        status === 'required'
+                          ? 'text-ink-muted'
+                          : status === 'recommended'
+                            ? 'text-accent'
+                            : 'text-ink-faint'
+                      }`}
+                    >
+                      {status === 'required'
+                        ? 'Required'
+                        : status === 'recommended'
+                          ? 'Recommended'
+                          : 'Optional'}
+                    </span>
+                  </div>
+                  {isSelected && (
+                    <>
+                      {chosenOption ? (
+                        <p className="text-[11px] text-ink-muted leading-snug truncate mt-1">
+                          {chosenOption.name}
+                        </p>
+                      ) : (
+                        <p className="text-[10px] text-ink-faint italic mt-1">Choose technology →</p>
+                      )}
+                      <p className="text-[11px] text-ink-muted leading-snug line-clamp-2 mt-1">
+                        {block.summary}
+                      </p>
+                    </>
                   )}
-                  <p className="text-[9px] text-ink-muted leading-snug line-clamp-2 mt-0.5">{block.summary}</p>
                 </button>
-              )}
+              </div>
             </div>
           );
         })}

@@ -502,15 +502,15 @@ function TechChoiceChip({ option, instanceId }: { option: TechOption; instanceId
       </span>
       <div
         role="tooltip"
-        className="pointer-events-none absolute z-[80] right-0 bottom-[calc(100%+6px)] w-[min(18rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[9px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+        className="pointer-events-none absolute z-[80] right-0 bottom-[calc(100%+6px)] w-[min(18rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
       >
         <p className="leading-relaxed">{option.description}</p>
         {option.pros.length > 0 && (
           <div className="mt-2 pt-2 border-t border-white/15">
-            <p className="text-[8px] font-bold uppercase tracking-[0.08em] text-surface/50 mb-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-surface/50 mb-1">
               Why this choice
             </p>
-            <ul className="space-y-0.5 text-[9px] text-surface/75 list-disc pl-3.5 marker:text-surface/45">
+            <ul className="space-y-0.5 text-[11px] text-surface/75 list-disc pl-3.5 marker:text-surface/45">
               {option.pros.map((pro, i) => (
                 <li key={i}>{pro}</li>
               ))}
