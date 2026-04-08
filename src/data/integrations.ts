@@ -2,6 +2,20 @@ import type { Tier } from '../types';
 
 export type IntegrationCategory = 'skill' | 'mcp' | 'api' | 'library';
 
+export const INTEGRATION_CATEGORY_LABELS: Record<IntegrationCategory, string> = {
+  skill: 'Skills',
+  mcp: 'MCPs',
+  api: 'APIs',
+  library: 'Libraries',
+};
+
+export const INTEGRATION_CATEGORY_ORDER: IntegrationCategory[] = [
+  'skill',
+  'mcp',
+  'api',
+  'library',
+];
+
 /** Curated integrations; skills link to the open directory at https://skills.sh */
 export interface IntegrationItem {
   id: string;

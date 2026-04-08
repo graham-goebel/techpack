@@ -3,7 +3,12 @@ import type { ProjectConfig, ProjectFileResource, Tier } from '../types';
 import { blocks } from '../data/blocks';
 import { techOptions } from '../data/techOptions';
 import { blockLibraries } from '../data/libraries';
-import { modelsForToolAndTier, toolRecommendations } from '../data/models';
+import { getTierForProjectTypeId } from '../data/projectTypes';
+import {
+  modelsForToolAndTier,
+  sanitizeSubagentModelsForTool,
+  toolRecommendations,
+} from '../data/models';
 import { parseProjectConfig } from '../utils/projectConfigParse';
 
 const WORKSPACE_STORAGE_KEY = 'tech-pack-workspace';
@@ -22,6 +27,8 @@ function createEmptyConfig(): ProjectConfig {
     selectedLibraryIds: [],
     selectedIntegrationIds: [],
     resources: [],
+    useSubagents: true,
+    subagentModels: {},
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -34,7 +41,13 @@ function loadWorkspaceFromStorage(): ProjectConfig | null {
     const parsed = JSON.parse(raw) as unknown;
     const config = parseProjectConfig(parsed, true);
     if (!config) return null;
-    return { ...config, updatedAt: Date.now() };
+    const tier = getTierForProjectTypeId(config.projectTypeId);
+    const toolId = config.selectedToolIds[0];
+    return {
+      ...config,
+      subagentModels: sanitizeSubagentModelsForTool(config.subagentModels ?? {}, toolId, tier),
+      updatedAt: Date.now(),
+    };
   } catch {
     return null;
   }
@@ -75,12 +88,14 @@ export function useProject() {
           selectedLibraryIds: [],
           selectedIntegrationIds: [],
           resources: [],
+          useSubagents: true,
+          subagentModels: {},
           onboardingCompleted: undefined,
           updatedAt: Date.now(),
         };
       }
 
-      const tier = getTierForType(typeId);
+      const tier = getTierForProjectTypeId(typeId);
       const defaultBlockIds = blocks
         .filter((b) => {
           const status = b.statusForTier(tier);
@@ -118,6 +133,8 @@ export function useProject() {
         selectedLibraryIds: [],
         selectedIntegrationIds: [],
         resources: [],
+        useSubagents: true,
+        subagentModels: {},
         onboardingCompleted: false,
         updatedAt: Date.now(),
       };
@@ -196,6 +213,30 @@ export function useProject() {
     }));
   }, []);
 
+  const setUseSubagents = useCallback((value: boolean) => {
+    setConfig((prev) => ({
+      ...prev,
+      useSubagents: value,
+      updatedAt: Date.now(),
+    }));
+  }, []);
+
+  const setSubagentModel = useCallback((laneId: string, modelId: string) => {
+    setConfig((prev) => {
+      const tier = getTierForProjectTypeId(prev.projectTypeId);
+      const toolId = prev.selectedToolIds[0];
+      const allowed = new Set(modelsForToolAndTier(toolId, tier).map((m) => m.id));
+      const next = { ...prev.subagentModels };
+      const trimmed = modelId.trim();
+      if (!trimmed) {
+        delete next[laneId];
+      } else if (allowed.has(trimmed)) {
+        next[laneId] = trimmed;
+      }
+      return { ...prev, subagentModels: next, updatedAt: Date.now() };
+    });
+  }, []);
+
   const toggleIntegration = useCallback((integrationId: string) => {
     setConfig((prev) => {
       const has = prev.selectedIntegrationIds.includes(integrationId);
@@ -258,15 +299,21 @@ export function useProject() {
 
   const setTool = useCallback((toolId: string | null) => {
     setConfig((prev) => {
-      const tier = getTierForType(prev.projectTypeId);
+      const tier = getTierForProjectTypeId(prev.projectTypeId);
       const nextToolIds = toolId ? [toolId] : [];
       const allowed = modelsForToolAndTier(toolId ?? undefined, tier);
       const currentOk = allowed.some((m) => m.id === prev.selectedModelId);
       const nextModelId = currentOk ? prev.selectedModelId : (allowed[0]?.id ?? '');
+      const subagentModels = sanitizeSubagentModelsForTool(
+        prev.subagentModels ?? {},
+        toolId ?? undefined,
+        tier,
+      );
       return {
         ...prev,
         selectedToolIds: nextToolIds,
         selectedModelId: nextModelId,
+        subagentModels,
         updatedAt: Date.now(),
       };
     });
@@ -275,7 +322,7 @@ export function useProject() {
   const hydrateWorkspace = useCallback((data: unknown) => {
     const parsed = parseProjectConfig(data, false);
     if (!parsed) return;
-    const tier = getTierForType(parsed.projectTypeId);
+    const tier = getTierForProjectTypeId(parsed.projectTypeId);
     const allowedTools = toolRecommendations
       .filter((t) => t.tiers.includes(tier))
       .sort((a, b) => (a.id === 'cursor' ? -1 : b.id === 'cursor' ? 1 : 0));
@@ -286,11 +333,17 @@ export function useProject() {
     const models = modelsForToolAndTier(primaryToolId, tier);
     const modelOk = models.some((m) => m.id === parsed.selectedModelId);
     const nextModelId = modelOk ? parsed.selectedModelId : (models[0]?.id ?? '');
+    const subagentModels = sanitizeSubagentModelsForTool(
+      parsed.subagentModels ?? {},
+      primaryToolId,
+      tier,
+    );
 
     setConfig({
       ...parsed,
       selectedToolIds: nextToolIds,
       selectedModelId: nextModelId,
+      subagentModels,
       onboardingCompleted: parsed.projectTypeId ? true : parsed.onboardingCompleted,
       updatedAt: Date.now(),
     });
@@ -306,7 +359,7 @@ export function useProject() {
   }, []);
 
   const tier: Tier = useMemo(
-    () => getTierForType(config.projectTypeId),
+    () => getTierForProjectTypeId(config.projectTypeId),
     [config.projectTypeId],
   );
 
@@ -321,6 +374,8 @@ export function useProject() {
     setProjectDescription,
     setTypeDetail,
     setModel,
+    setUseSubagents,
+    setSubagentModel,
     setTool,
     toggleLibrary,
     toggleIntegration,
@@ -330,20 +385,4 @@ export function useProject() {
     hydrateWorkspace,
     resetWorkspace,
   };
-}
-
-function getTierForType(typeId: string): Tier {
-  const tierMap: Record<string, Tier> = {
-    'style-tile': 1,
-    markdown: 1,
-    'mood-board': 1,
-    'plugin-extension': 2,
-    prototype: 3,
-    website: 4,
-    'web-app': 5,
-    'ios-mac-app': 5,
-    saas: 6,
-    platform: 7,
-  };
-  return tierMap[typeId] ?? 1;
 }

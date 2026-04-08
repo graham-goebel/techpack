@@ -107,6 +107,17 @@ export interface ProjectConfig {
   typeDetails: Record<string, string>;
   /** ID of the user-chosen AI model (from modelRecommendations) */
   selectedModelId: string;
+  /**
+   * When true, show per-block subagent model picks and include subagent routing in the prompt.
+   * When false, only the primary model applies and subagent UI is hidden.
+   */
+  useSubagents: boolean;
+  /**
+   * Optional per-lane model overrides for subagent-style routing (lanes in SUBAGENT_LANES).
+   * Set from each block’s expanded panel in the sidebar; blocks in the same lane share one override.
+   * Omitted lane or empty string → use primary selectedModelId in prompts.
+   */
+  subagentModels: Record<string, string>;
   /** IDs of user-chosen tools (from toolRecommendations) */
   selectedToolIds: string[];
   /** IDs of user-chosen libraries (from blockLibraries) */

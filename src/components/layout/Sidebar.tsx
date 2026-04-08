@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Block, ProjectConfig, ProjectFileResource, Tier } from '../../types';
+import type { Block, ModelRecommendation, ProjectConfig, ProjectFileResource, Tier } from '../../types';
 import { projectTypes } from '../../data/projectTypes';
 import { getTypeDetailFields } from '../../data/projectTypeDetailFields';
 import { blocks } from '../../data/blocks';
 import { techOptions } from '../../data/techOptions';
 import { blockLibraries } from '../../data/libraries';
 import { modelsForToolAndTier, toolRecommendations } from '../../data/models';
+import { getSubagentLaneForBlock, type SubagentLane } from '../../data/blockSubagentLane';
 import {
   getVisibleIntegrations,
+  INTEGRATION_CATEGORY_LABELS,
+  INTEGRATION_CATEGORY_ORDER,
   skillsShUrl,
   type IntegrationCategory,
   type IntegrationItem,
@@ -15,8 +18,9 @@ import {
 import { CheckIcon } from '@primer/octicons-react';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
-import { HomeNavButton } from '../ui/HomeNavButton';
 import { ResourcesPanel } from '../resources/ResourcesPanel';
+import { CustomSelect } from '../ui/CustomSelect';
+import { LibraryChip } from '../ui/LibraryChip';
 
 interface SidebarProps {
   config: ProjectConfig;
@@ -28,26 +32,17 @@ interface SidebarProps {
   onSetDescription: (desc: string) => void;
   onSetTypeDetail: (fieldId: string, value: string) => void;
   onSetModel: (modelId: string) => void;
+  onSetUseSubagents: (value: boolean) => void;
+  onSetSubagentModel: (laneId: string, modelId: string) => void;
   onSetTool: (toolId: string | null) => void;
   onToggleLibrary: (libraryId: string) => void;
   onToggleIntegration: (integrationId: string) => void;
   onAddResourceUrl: (label: string, url: string) => void;
   onAddResourceFile: (file: Omit<ProjectFileResource, 'id' | 'kind'>) => void;
   onRemoveResource: (id: string) => void;
-  onSave: () => void;
-  onGoHome?: () => void;
 }
 
 type SectionId = 'type' | 'project' | 'blocks' | 'resources' | 'integrations';
-
-const INTEGRATION_CATEGORY_LABELS: Record<IntegrationCategory, string> = {
-  skill: 'Skills',
-  mcp: 'MCPs',
-  api: 'APIs',
-  library: 'Libraries',
-};
-
-const INTEGRATION_CATEGORY_ORDER: IntegrationCategory[] = ['skill', 'mcp', 'api', 'library'];
 
 export function Sidebar({
   config,
@@ -59,17 +54,16 @@ export function Sidebar({
   onSetDescription,
   onSetTypeDetail,
   onSetModel,
+  onSetUseSubagents,
+  onSetSubagentModel,
   onSetTool,
   onToggleLibrary,
   onToggleIntegration,
   onAddResourceUrl,
   onAddResourceFile,
   onRemoveResource,
-  onSave,
-  onGoHome,
 }: SidebarProps) {
   const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set());
-  const [saved, setSaved] = useState(false);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
   const [projectTypeMenuOpen, setProjectTypeMenuOpen] = useState(false);
   const projectTypeMenuRef = useRef<HTMLDivElement>(null);
@@ -176,6 +170,10 @@ export function Sidebar({
     () => modelsForToolAndTier(selectedToolId || undefined, tier),
     [selectedToolId, tier],
   );
+  const primaryModelMeta = useMemo(
+    () => models.find((m) => m.id === config.selectedModelId),
+    [models, config.selectedModelId],
+  );
   const tools = toolRecommendations
     .filter((t) => t.tiers.includes(tier))
     .sort((a, b) => (a.id === 'cursor' ? -1 : b.id === 'cursor' ? 1 : 0));
@@ -205,12 +203,6 @@ export function Sidebar({
       return INTEGRATION_CATEGORY_ORDER.find((c) => countIn(c) > 0) ?? prev;
     });
   }, [visibleIntegrations]);
-
-  const handleSave = useCallback(() => {
-    onSave();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }, [onSave]);
 
   return (
     <aside className="relative w-[304px] shrink-0 border-r border-rule bg-surface flex flex-col h-screen overflow-hidden">
@@ -308,7 +300,7 @@ export function Sidebar({
 
               {projectTypeMenuOpen && (
                 <div
-                  className="absolute z-50 left-0 right-0 mt-1 max-h-[min(22rem,65vh)] overflow-y-auto rounded-lg border border-rule bg-surface shadow-md py-1"
+                  className="absolute z-[230] left-0 right-0 mt-1 max-h-[min(22rem,65vh)] overflow-y-auto rounded-lg border border-rule bg-surface shadow-md py-1"
                   role="listbox"
                   aria-label="Project types"
                 >
@@ -409,7 +401,7 @@ export function Sidebar({
 
                   {toolMenuOpen && (
                     <div
-                      className="absolute z-50 left-0 right-0 mt-1 max-h-[min(22rem,65vh)] overflow-y-auto rounded-lg border border-rule bg-surface shadow-md py-1"
+                      className="absolute z-[230] left-0 right-0 mt-1 max-h-[min(22rem,65vh)] overflow-y-auto rounded-lg border border-rule bg-surface shadow-md py-1"
                       role="listbox"
                       aria-label="Tools"
                     >
@@ -469,46 +461,78 @@ export function Sidebar({
                   )}
                 </div>
 
-                {/* Model selector — single pick, options depend on tool */}
-                <div className="border border-rule border-b-0 bg-surface">
+                {/* Model — custom dropdown, options depend on tool */}
+                <div className="border border-rule rounded-lg overflow-visible bg-surface">
                   <div className="px-3 py-1.5 bg-surface-raised border-b border-rule">
-                    <span className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">Model</span>
+                    <label
+                      htmlFor="sidebar-primary-model"
+                      className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]"
+                    >
+                      Model
+                    </label>
                   </div>
-                  {models.length === 0 ? (
-                    <p className="px-3 py-3 text-[9px] text-ink-faint leading-snug">
-                      Choose a tool to see compatible models.
-                    </p>
-                  ) : (
-                    models.map((m) => {
-                      const isChosen = config.selectedModelId === m.id;
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => onSetModel(m.id)}
-                          className={`w-full text-left px-3 py-2 border-b border-rule last:border-b-0 transition-colors ${
-                            isChosen ? 'bg-surface-raised' : 'hover:bg-surface-raised'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className={`h-2.5 w-2.5 shrink-0 rounded-full border-2 flex items-center justify-center ${
-                              isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
-                            }`}>
-                              {isChosen && <div className="h-1 w-1 rounded-full bg-surface" />}
-                            </div>
-                            <span className={`text-[13px] font-semibold flex-1 truncate ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>{m.name}</span>
-                            <span className="text-[10px] text-ink-faint">{m.provider}</span>
-                          </div>
-                          <p className={`text-[11px] leading-snug mt-0.5 ml-[18px] line-clamp-2 ${
-                            isChosen ? 'text-ink-muted' : 'text-ink-faint'
-                          }`}>
-                            {m.reasoning}
-                          </p>
-                        </button>
-                      );
-                    })
-                  )}
+                  <div className="p-2">
+                    {models.length === 0 ? (
+                      <p className="px-1 py-2 text-[9px] text-ink-faint leading-snug">
+                        Choose a tool to see compatible models.
+                      </p>
+                    ) : (
+                      <CustomSelect
+                        id="sidebar-primary-model"
+                        value={config.selectedModelId}
+                        onChange={onSetModel}
+                        options={models.map((m) => ({
+                          value: m.id,
+                          label: `${m.name} (${m.provider})`,
+                          description: m.reasoning,
+                        }))}
+                        size="md"
+                        placeholder="Select model…"
+                        listClassName="max-h-[min(22rem,55vh)]"
+                        aria-label="Primary AI model"
+                      />
+                    )}
+                  </div>
                 </div>
+
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-rule bg-surface px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+                      Use subagents
+                    </p>
+                    <p className="mt-0.5 text-[9px] text-ink-muted leading-snug">
+                      Per-block lane models, stack chips, and prompt routing. Off = primary model only.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={config.useSubagents}
+                    onClick={() => onSetUseSubagents(!config.useSubagents)}
+                    className={`relative h-7 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                      config.useSubagents
+                        ? 'border-ink bg-ink'
+                        : 'border-rule bg-surface-raised'
+                    }`}
+                  >
+                    <span className="sr-only">
+                      {config.useSubagents ? 'Subagents on' : 'Subagents off'}
+                    </span>
+                    <span
+                      className={`absolute top-1 left-1 block h-5 w-5 rounded-full bg-surface shadow-sm transition-transform duration-200 ease-out ${
+                        config.useSubagents ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                      aria-hidden
+                    />
+                  </button>
+                </div>
+
+                {config.useSubagents ? (
+                  <p className="text-[9px] text-ink-muted leading-snug px-0.5">
+                    Subagent models for focused sessions are set per block — expand a block below and pick a model
+                    for its lane (or use primary).
+                  </p>
+                ) : null}
               </div>
             )}
           </div>
@@ -557,9 +581,9 @@ export function Sidebar({
                         idx < typeDetailFields.length - 1 ? 'border-b border-rule' : ''
                       }`}
                     >
-                      <label className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">
+                      <div className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">
                         {field.label}
-                      </label>
+                      </div>
                       {field.input === 'chips' && field.options ? (
                         <div
                           className="flex flex-wrap gap-1.5 pt-0.5"
@@ -590,17 +614,17 @@ export function Sidebar({
                             })}
                         </div>
                       ) : field.input === 'select' && field.options ? (
-                        <select
+                        <CustomSelect
+                          id={`sidebar-type-detail-${field.id}`}
+                          size="md"
                           value={typeDetails[field.id] ?? ''}
-                          onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
-                          className="w-full bg-transparent text-sm text-ink focus:outline-none cursor-pointer border border-rule rounded-sm px-1 py-0.5"
-                        >
-                          {field.options.map((opt) => (
-                            <option key={opt.value || 'placeholder'} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(v) => onSetTypeDetail(field.id, v)}
+                          options={field.options.map((opt) => ({
+                            value: opt.value,
+                            label: opt.label,
+                          }))}
+                          aria-label={field.label}
+                        />
                       ) : field.multiline ? (
                         <textarea
                           value={typeDetails[field.id] ?? ''}
@@ -640,11 +664,7 @@ export function Sidebar({
               <div className="px-3 pb-3 animate-fade-in space-y-3">
                 {/* Included blocks (required + user-added) */}
                 {includedBlocks.length > 0 && (
-                  <div
-                    className={`flex flex-col gap-px bg-rule border border-rule ${
-                      recommendedBlocks.length === 0 ? 'border-b-0' : ''
-                    }`}
-                  >
+                  <div className="flex flex-col gap-px bg-rule border border-rule">
                     {includedBlocks.map((block) => {
                       const status = block.statusForTier(tier);
                       const isRequired = status === 'required';
@@ -708,7 +728,7 @@ export function Sidebar({
                             {!isExpanded && (
                               <div
                                 role="tooltip"
-                                className="pointer-events-none absolute z-[70] left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+                                className="pointer-events-none absolute z-[230] left-3 translate-x-0 bottom-[calc(100%+6px)] w-max max-w-[min(17rem,calc(304px-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
                               >
                                 {block.summary}
                               </div>
@@ -719,8 +739,11 @@ export function Sidebar({
                               <IncludedBlockExpandedPanel
                                 block={block}
                                 config={config}
+                                models={models}
+                                primaryModelMeta={primaryModelMeta}
                                 onSetTechChoice={onSetTechChoice}
                                 onToggleLibrary={onToggleLibrary}
+                                onSetSubagentModel={onSetSubagentModel}
                               />
                             </div>
                           )}
@@ -745,7 +768,7 @@ export function Sidebar({
                         Add all
                       </button>
                     </div>
-                    <div className="flex flex-col gap-px bg-rule border border-rule border-b-0">
+                    <div className="flex flex-col gap-px bg-rule border border-rule">
                       {recommendedBlocks.map((block) => {
                         const isExpanded = expandedBlockId === block.id;
                         const techForPreview =
@@ -801,29 +824,43 @@ export function Sidebar({
                               {!isExpanded && (
                                 <div
                                   role="tooltip"
-                                  className="pointer-events-none absolute z-[70] left-1/2 -translate-x-1/2 bottom-[calc(100%+6px)] w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+                                  className="pointer-events-none absolute z-[230] left-3 translate-x-0 bottom-[calc(100%+6px)] w-max max-w-[min(17rem,calc(304px-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
                                 >
                                   {block.summary}
                                 </div>
                               )}
                             </div>
                             {isExpanded && (
-                              <div className="min-w-0 w-full border-t border-rule px-2.5 py-2.5 bg-surface-raised space-y-2 animate-fade-in">
-                                <p className="text-[10px] text-ink-secondary leading-relaxed">{block.explanation}</p>
-                                <div>
-                                  <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-0.5">Why</p>
-                                  <p className="text-[10px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
+                              <div className="min-w-0 w-full border-t border-rule bg-surface-raised animate-fade-in">
+                                <div className="px-2.5 py-2.5 space-y-2">
+                                  <p className="text-[10px] text-ink-secondary leading-relaxed">{block.explanation}</p>
+                                  <div>
+                                    <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-0.5">Why</p>
+                                    <p className="text-[10px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
+                                  </div>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => onToggleBlock(block.id)}
-                                  className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-ink hover:text-accent border border-rule hover:border-accent transition-colors"
-                                >
-                                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                                    <path strokeLinecap="round" d="M12 5v14M5 12h14" />
-                                  </svg>
-                                  Add to project
-                                </button>
+                                {config.useSubagents ? (
+                                  <BlockSubagentModelRow
+                                    lane={getSubagentLaneForBlock(block.id)}
+                                    blockId={block.id}
+                                    config={config}
+                                    models={models}
+                                    primaryModelMeta={primaryModelMeta}
+                                    onSetSubagentModel={onSetSubagentModel}
+                                  />
+                                ) : null}
+                                <div className="px-2.5 pb-2.5 pt-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => onToggleBlock(block.id)}
+                                    className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-ink hover:text-accent border border-rule hover:border-accent transition-colors"
+                                  >
+                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                                      <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                                    </svg>
+                                    Add to project
+                                  </button>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1001,42 +1038,80 @@ export function Sidebar({
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-50 flex flex-col gap-2">
-        <div
-          className="pointer-events-auto flex flex-col gap-2 rounded-lg border border-rule bg-white/90 p-2 shadow-lg shadow-black/10 backdrop-blur-md"
-          role="group"
-          aria-label="Quick actions"
-        >
-          {onGoHome && (
-            <HomeNavButton
-              onClick={onGoHome}
-              iconSize={18}
-              className="border-transparent p-2 text-accent hover:border-rule hover:bg-accent-light/40 hover:text-accent"
-            />
-          )}
-          <button
-            type="button"
-            onClick={handleSave}
-            className="border border-rule px-3 py-2 text-[10px] font-bold text-ink uppercase tracking-wider hover:bg-surface-raised transition-colors whitespace-nowrap"
-          >
-            {saved ? 'Saved' : 'Save'}
-          </button>
-        </div>
-      </div>
     </aside>
+  );
+}
+
+function BlockSubagentModelRow({
+  lane,
+  blockId,
+  config,
+  models,
+  primaryModelMeta,
+  onSetSubagentModel,
+}: {
+  lane: SubagentLane | undefined;
+  blockId: string;
+  config: ProjectConfig;
+  models: ModelRecommendation[];
+  primaryModelMeta: ModelRecommendation | undefined;
+  onSetSubagentModel: (laneId: string, modelId: string) => void;
+}) {
+  if (!lane) return null;
+  const selectId = `subagent-model-${lane.id}-${blockId}`;
+  return (
+    <div className="border-t border-rule">
+      <div className="px-2.5 py-1.5">
+        <span className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em]">
+          Subagent model — {lane.label}
+        </span>
+      </div>
+      <div className="px-2.5 pb-2.5">
+        <p className="text-[9px] text-ink-muted leading-snug mb-1.5">
+          For a focused session on this block, use this lane and optional model override. Shared with other blocks in the same lane.
+        </p>
+        <p className="text-[9px] text-ink-faint leading-snug mb-1.5">{lane.hint}</p>
+        <CustomSelect
+          id={selectId}
+          size="sm"
+          value={config.subagentModels?.[lane.id] ?? ''}
+          onChange={(v) => onSetSubagentModel(lane.id, v)}
+          disabled={models.length === 0}
+          onTriggerPointerDown={(e) => e.stopPropagation()}
+          placeholder="Same as primary"
+          options={[
+            {
+              value: '',
+              label: `Same as primary${primaryModelMeta ? ` (${primaryModelMeta.name})` : ''}`,
+            },
+            ...models.map((m) => ({
+              value: m.id,
+              label: `${m.name} (${m.provider})`,
+            })),
+          ]}
+          aria-label={`Subagent model for ${lane.label}`}
+        />
+      </div>
+    </div>
   );
 }
 
 function IncludedBlockExpandedPanel({
   block,
   config,
+  models,
+  primaryModelMeta,
   onSetTechChoice,
   onToggleLibrary,
+  onSetSubagentModel,
 }: {
   block: Block;
   config: ProjectConfig;
+  models: ModelRecommendation[];
+  primaryModelMeta: ModelRecommendation | undefined;
   onSetTechChoice: (blockId: string, optionId: string) => void;
   onToggleLibrary: (libraryId: string) => void;
+  onSetSubagentModel: (laneId: string, modelId: string) => void;
 }) {
   return (
     <div className="border-t border-rule bg-surface-raised animate-fade-in">
@@ -1047,6 +1122,16 @@ function IncludedBlockExpandedPanel({
           <p className="text-[10px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
         </div>
       </div>
+      {config.useSubagents ? (
+        <BlockSubagentModelRow
+          lane={getSubagentLaneForBlock(block.id)}
+          blockId={block.id}
+          config={config}
+          models={models}
+          primaryModelMeta={primaryModelMeta}
+          onSetSubagentModel={onSetSubagentModel}
+        />
+      ) : null}
       {block.techOptionIds.length > 0 && (() => {
         const options = techOptions.filter((o) => block.techOptionIds.includes(o.id));
         const chosenId = config.techChoices[block.id];
@@ -1104,34 +1189,18 @@ function IncludedBlockExpandedPanel({
                 <div key={cat}>
                   <p className="text-[8px] font-semibold text-ink-faint uppercase tracking-wider mb-1">{cat}</p>
                   <div className="flex flex-wrap gap-1">
-                    {libs.filter((l) => l.category === cat).map((lib) => {
-                      const isActive = config.selectedLibraryIds.includes(lib.id);
-                      return (
-                        <button
-                          key={lib.id}
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); onToggleLibrary(lib.id); }}
-                          title={lib.description}
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold rounded-sm border transition-colors ${
-                            isActive
-                              ? 'bg-surface text-ink border-ink/30'
-                              : 'bg-transparent text-ink-faint border-rule hover:text-ink-secondary hover:border-rule-strong'
-                          }`}
-                        >
-                          {!isActive && (
-                            <svg className="h-2.5 w-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" d="M12 5v14M5 12h14" />
-                            </svg>
-                          )}
-                          {lib.name}
-                          {isActive && (
-                            <svg className="h-2 w-2 shrink-0 text-ink-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          )}
-                        </button>
-                      );
-                    })}
+                    {libs.filter((l) => l.category === cat).map((lib) => (
+                      <LibraryChip
+                        key={lib.id}
+                        lib={lib}
+                        isActive={config.selectedLibraryIds.includes(lib.id)}
+                        onToggle={() => onToggleLibrary(lib.id)}
+                        size="sm"
+                        variant="sidebar"
+                        idPrefix={`sidebar-${block.id}`}
+                        stopPropagationOnClick
+                      />
+                    ))}
                   </div>
                 </div>
               ))}

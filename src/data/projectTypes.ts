@@ -1,4 +1,4 @@
-import type { ProjectType } from '../types';
+import type { ProjectType, Tier } from '../types';
 
 export const projectTypes: ProjectType[] = [
   {
@@ -130,3 +130,11 @@ export const projectTypes: ProjectType[] = [
     ],
   },
 ];
+
+/** Resolve tier for a project type id (legacy ids included). */
+export function getTierForProjectTypeId(typeId: string): Tier {
+  if (!typeId) return 1;
+  if (typeId === 'style-tile') return 1;
+  const p = projectTypes.find((t) => t.id === typeId);
+  return p?.tier ?? 1;
+}

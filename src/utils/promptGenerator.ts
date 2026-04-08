@@ -8,6 +8,7 @@ import { blocks } from '../data/blocks';
 import { techOptions } from '../data/techOptions';
 import { blockLibraries } from '../data/libraries';
 import { modelRecommendations, toolRecommendations } from '../data/models';
+import { SUBAGENT_LANES } from '../data/subagentLanes';
 import { getIntegrationById } from '../data/integrations';
 
 const MAX_EMBED_FILE_CHARS = 10_000;
@@ -55,6 +56,73 @@ function tryEmbedFileContent(r: ProjectFileResource): string | null {
   return text;
 }
 
+function pushModelToolsAndSubagentSections(
+  sections: string[],
+  config: ProjectConfig,
+  tierModels: (typeof modelRecommendations)[number][],
+  tierTools: (typeof toolRecommendations)[number][],
+): void {
+  const chosenModel = config.selectedModelId
+    ? modelRecommendations.find((m) => m.id === config.selectedModelId)
+    : tierModels[0];
+  const chosenTools =
+    config.selectedToolIds.length > 0
+      ? toolRecommendations.filter((t) => config.selectedToolIds.includes(t.id))
+      : tierTools.slice(0, 1);
+
+  sections.push('## AI Model & Tools');
+  sections.push('');
+  if (chosenModel) {
+    sections.push(
+      `**Model:** ${chosenModel.name} (${chosenModel.provider}) — ${chosenModel.reasoning}`,
+    );
+    sections.push('');
+  }
+  if (chosenTools.length > 0) {
+    sections.push('**Tools:**');
+    for (const tool of chosenTools) {
+      sections.push(`- **${tool.name}**: ${tool.reasoning}`);
+    }
+  }
+
+  if (config.useSubagents) {
+    sections.push('');
+    sections.push('## Subagent & model routing');
+    sections.push('');
+    sections.push(
+      'Split work across **focused sessions** (separate chats, agent tasks, or subagents). Give each session only the slice of this brief that matches the lane below so prompts stay small and models are used efficiently. Model overrides are chosen in the sidebar under **Blocks** (expand a block — each block maps to a lane; overrides are shared across blocks in the same lane).',
+    );
+    sections.push('');
+    const sub = config.subagentModels ?? {};
+    for (const lane of SUBAGENT_LANES) {
+      const overrideId = sub[lane.id];
+      const override = overrideId
+        ? modelRecommendations.find((m) => m.id === overrideId)
+        : undefined;
+      const effective = override ?? chosenModel;
+      if (effective) {
+        const tag = override ? 'dedicated model' : 'same as primary';
+        sections.push(
+          `- **${lane.label}** (${tag}): **${effective.name}** (${effective.provider}) — ${lane.hint}. ${effective.reasoning}`,
+        );
+      } else {
+        sections.push(`- **${lane.label}**: ${lane.hint} — use your primary model.`);
+      }
+    }
+    sections.push('');
+    sections.push(
+      '**Workflow:** For UI-only tasks, open a session with the UI lane model and paste only component/style requirements. For API or schema work, use the backend or data lane model with a trimmed prompt. Escalate to a stronger model when a task spans multiple lanes or needs deep reasoning.',
+    );
+  } else {
+    sections.push('');
+    sections.push(
+      '**Subagents:** Off — use a single primary model for all work in this brief. Lane-specific overrides are disabled.',
+    );
+  }
+
+  sections.push('');
+}
+
 export function generatePrompt(config: ProjectConfig, tier: Tier): string {
   const projectType = projectTypes.find((t) => t.id === config.projectTypeId);
   if (!projectType) return '';
@@ -75,6 +143,8 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
   sections.push(`# Project: ${config.name || 'Untitled Project'}`);
   sections.push(`## Type: ${projectType.name}`);
   sections.push('');
+
+  pushModelToolsAndSubagentSections(sections, config, models, tools);
 
   // Description
   if (config.projectDescription) {
@@ -185,26 +255,6 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
   sections.push('');
   sections.push(generateGettingStarted(tier, selectedBlocks, config));
   sections.push('');
-
-  // Model and tool selections
-  sections.push('## AI Model & Tools');
-  sections.push('');
-  const chosenModel = config.selectedModelId
-    ? modelRecommendations.find((m) => m.id === config.selectedModelId)
-    : models[0];
-  if (chosenModel) {
-    sections.push(`**Model:** ${chosenModel.name} (${chosenModel.provider}) — ${chosenModel.reasoning}`);
-    sections.push('');
-  }
-  const chosenTools = config.selectedToolIds.length > 0
-    ? toolRecommendations.filter((t) => config.selectedToolIds.includes(t.id))
-    : tools.slice(0, 1);
-  if (chosenTools.length > 0) {
-    sections.push('**Tools:**');
-    for (const tool of chosenTools) {
-      sections.push(`- **${tool.name}**: ${tool.reasoning}`);
-    }
-  }
 
   const chosenIntegrations = (config.selectedIntegrationIds ?? [])
     .map((id) => getIntegrationById(id))

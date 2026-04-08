@@ -13,7 +13,7 @@ import { toolRecommendations } from '../../data/models';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
 import { ResourcesPanel } from '../resources/ResourcesPanel';
-import { HomeNavButton } from '../ui/HomeNavButton';
+import { CustomSelect } from '../ui/CustomSelect';
 
 const STEPS = ['details', 'blocks', 'resources'] as const;
 type StepId = (typeof STEPS)[number];
@@ -66,7 +66,6 @@ interface ProjectOnboardingProps {
   onAddResourceUrl: (label: string, url: string) => void;
   onAddResourceFile: (file: Omit<ProjectFileResource, 'id' | 'kind'>) => void;
   onRemoveResource: (id: string) => void;
-  onGoHome?: () => void;
 }
 
 export function ProjectOnboarding({
@@ -83,7 +82,6 @@ export function ProjectOnboarding({
   onAddResourceUrl,
   onAddResourceFile,
   onRemoveResource,
-  onGoHome,
 }: ProjectOnboardingProps) {
   const [step, setStep] = useState<StepId>('details');
   const [integrationTab, setIntegrationTab] = useState<IntegrationCategory>('skill');
@@ -163,12 +161,7 @@ export function ProjectOnboarding({
       aria-labelledby="onboarding-title"
     >
       <header className="relative shrink-0 border-b border-rule bg-white/80 backdrop-blur-sm px-5 py-4 sm:px-8">
-        {onGoHome && (
-          <div className="absolute right-5 top-4 z-10 sm:right-8">
-            <HomeNavButton onClick={onGoHome} iconSize={18} />
-          </div>
-        )}
-        <div className="max-w-3xl mx-auto pr-12 sm:pr-14">
+        <div className="max-w-3xl mx-auto">
           <div className="min-w-0">
             <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-1">
               Setup · Step {stepIndex + 1} of {STEPS.length}
@@ -231,19 +224,15 @@ export function ProjectOnboarding({
                     >
                       AI coding tool
                     </label>
-                    <select
+                    <CustomSelect
                       id="onboarding-ai-tool"
+                      className="max-w-md"
                       value={toolSelectValue}
-                      onChange={(e) => onSetTool(e.target.value || null)}
-                      className="w-full max-w-md bg-surface border border-rule rounded-md px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/15"
+                      onChange={(v) => onSetTool(v || null)}
+                      options={toolsForTier.map((t) => ({ value: t.id, label: t.name }))}
                       aria-label="AI coding tool"
-                    >
-                      {toolsForTier.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                      size="md"
+                    />
                     <p className="mt-2 text-[10px] text-ink-muted leading-snug max-w-md">
                       {toolsForTier.find((t) => t.id === toolSelectValue)?.description}
                     </p>
@@ -251,9 +240,9 @@ export function ProjectOnboarding({
                 )}
                 {typeDetailFields.map((field) => (
                   <div key={field.id} className="p-4 sm:p-5">
-                    <label className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+                    <div className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
                       {field.label}
-                    </label>
+                    </div>
                     {field.input === 'chips' && field.options ? (
                       <div className="flex flex-wrap gap-2" role="group" aria-label={field.label}>
                         {field.options
@@ -278,17 +267,18 @@ export function ProjectOnboarding({
                           })}
                       </div>
                     ) : field.input === 'select' && field.options ? (
-                      <select
+                      <CustomSelect
+                        id={`onboarding-type-detail-${field.id}`}
+                        className="max-w-md"
                         value={typeDetails[field.id] ?? ''}
-                        onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
-                        className="w-full max-w-md bg-surface border border-rule rounded-md px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/15"
-                      >
-                        {field.options.map((opt) => (
-                          <option key={opt.value || 'placeholder'} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(v) => onSetTypeDetail(field.id, v)}
+                        options={field.options.map((opt) => ({
+                          value: opt.value,
+                          label: opt.label,
+                        }))}
+                        size="md"
+                        aria-label={field.label}
+                      />
                     ) : field.multiline ? (
                       <textarea
                         value={typeDetails[field.id] ?? ''}

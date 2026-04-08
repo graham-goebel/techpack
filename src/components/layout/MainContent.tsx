@@ -1,21 +1,217 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Block, ProjectConfig, TechOption, Tier } from '../../types';
 import { projectTypes } from '../../data/projectTypes';
 import { blocks } from '../../data/blocks';
 import { techOptions } from '../../data/techOptions';
+import { blockLibraries } from '../../data/libraries';
+import { modelRecommendations } from '../../data/models';
+import { getSubagentLaneForBlock } from '../../data/blockSubagentLane';
 import { groupVisibleBlocksByStackLayer } from '../../data/stackLayers';
 import { generatePrompt } from '../../utils/promptGenerator';
 import { ArchitectureFlowCanvas } from '../architecture/ArchitectureFlowCanvas';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
-import { HomeNavButton } from '../ui/HomeNavButton';
+import { LibraryChip } from '../ui/LibraryChip';
+import { IntegrationChip } from '../ui/IntegrationChip';
+import {
+  getVisibleIntegrations,
+  INTEGRATION_CATEGORY_LABELS,
+  INTEGRATION_CATEGORY_ORDER,
+  type IntegrationCategory,
+  type IntegrationItem,
+} from '../../data/integrations';
+
+type StackAddonTab = IntegrationCategory | 'packages';
+
+function stackAddonTabLabel(tab: StackAddonTab): string {
+  if (tab === 'packages') return 'Packages';
+  return INTEGRATION_CATEGORY_LABELS[tab];
+}
+
+function computeDefaultAddonTab(
+  block: Block,
+  integrationsByCategory: Map<IntegrationCategory, IntegrationItem[]>,
+): StackAddonTab {
+  if ((block.libraryIds?.length ?? 0) > 0) return 'packages';
+  for (const cat of INTEGRATION_CATEGORY_ORDER) {
+    if ((integrationsByCategory.get(cat) ?? []).length > 0) return cat;
+  }
+  return 'packages';
+}
+
+function stackRowHasAddons(
+  block: Block,
+  integrationsByCategory: Map<IntegrationCategory, IntegrationItem[]>,
+): boolean {
+  if ((block.libraryIds?.length ?? 0) > 0) return true;
+  return INTEGRATION_CATEGORY_ORDER.some(
+    (c) => (integrationsByCategory.get(c) ?? []).length > 0,
+  );
+}
+
+function StackOptionalAddonsPanel({
+  block,
+  config,
+  addonTab,
+  setAddonTab,
+  integrationsByCategory,
+  onToggleLibrary,
+  onToggleIntegration,
+}: {
+  block: Block;
+  config: ProjectConfig;
+  addonTab: StackAddonTab;
+  setAddonTab: (t: StackAddonTab) => void;
+  integrationsByCategory: Map<IntegrationCategory, IntegrationItem[]>;
+  onToggleLibrary: (id: string) => void;
+  onToggleIntegration: (id: string) => void;
+}) {
+  const libs =
+    (block.libraryIds?.length ?? 0) > 0
+      ? blockLibraries.filter((l) => block.libraryIds!.includes(l.id))
+      : [];
+
+  const visibleIntegrationTabs = INTEGRATION_CATEGORY_ORDER.filter(
+    (c) => (integrationsByCategory.get(c) ?? []).length > 0,
+  );
+  const hasPackages = libs.length > 0;
+  const visibleTabs: StackAddonTab[] = [
+    ...visibleIntegrationTabs,
+    ...(hasPackages ? (['packages'] as const) : []),
+  ];
+
+  if (visibleTabs.length === 0) return null;
+
+  const activeTab = visibleTabs.includes(addonTab) ? addonTab : visibleTabs[0]!;
+
+  const selectedInTab = (tab: StackAddonTab): number => {
+    if (tab === 'packages') {
+      return libs.filter((l) => config.selectedLibraryIds.includes(l.id)).length;
+    }
+    const list = integrationsByCategory.get(tab as IntegrationCategory) ?? [];
+    return list.filter((i) => config.selectedIntegrationIds.includes(i.id)).length;
+  };
+
+  const libCategories = [...new Set(libs.map((l) => l.category))];
+  const integrationItems: IntegrationItem[] =
+    activeTab === 'packages' ? [] : integrationsByCategory.get(activeTab as IntegrationCategory) ?? [];
+
+  return (
+    <div className="border-t border-rule">
+      <div className="px-5 py-4">
+        <p className="mb-1 text-[9px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+          Optional skills & add-ons
+        </p>
+        <p className="mb-3 text-[11px] leading-relaxed text-ink-muted">
+          Skills, MCPs, APIs, and catalog libraries match the Integrations sidebar. Packages are tied to this
+          block. All toggles stay in sync with your prompt.
+        </p>
+
+        {visibleTabs.length > 1 ? (
+          <div
+            role="tablist"
+            aria-label="Add-on categories"
+            className="-mx-5 mb-3 flex overflow-x-auto border-b border-rule px-5"
+          >
+            {visibleTabs.map((tab) => {
+              const n = selectedInTab(tab);
+              const isActive = tab === activeTab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  id={`stack-addon-tab-${block.id}-${tab}`}
+                  aria-controls={`stack-addon-panel-${block.id}`}
+                  onClick={() => setAddonTab(tab)}
+                  className={`min-w-0 shrink-0 border-b-2 px-2.5 py-2 text-[8px] font-bold uppercase tracking-[0.08em] transition-colors sm:px-3 ${
+                    isActive
+                      ? '-mb-px border-ink text-ink'
+                      : 'border-transparent text-ink-muted hover:text-ink-secondary'
+                  }`}
+                >
+                  <span className="whitespace-nowrap">
+                    {stackAddonTabLabel(tab)}
+                    {n > 0 ? (
+                      <span className="ml-0.5 font-mono text-[9px] font-normal normal-case tracking-normal text-accent">
+                        {n}
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <div
+          role="tabpanel"
+          id={`stack-addon-panel-${block.id}`}
+          aria-label={
+            visibleTabs.length > 1
+              ? undefined
+              : `${stackAddonTabLabel(activeTab)} for this block`
+          }
+          aria-labelledby={
+            visibleTabs.length > 1 ? `stack-addon-tab-${block.id}-${activeTab}` : undefined
+          }
+          className="overflow-visible"
+        >
+          {activeTab === 'packages' ? (
+            <div className="space-y-3">
+              {libCategories.map((cat) => (
+                <div key={cat}>
+                  <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-ink-faint">
+                    {cat}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {libs
+                      .filter((l) => l.category === cat)
+                      .map((lib) => (
+                        <LibraryChip
+                          key={lib.id}
+                          lib={lib}
+                          isActive={config.selectedLibraryIds.includes(lib.id)}
+                          onToggle={() => onToggleLibrary(lib.id)}
+                          size="md"
+                          variant="stack"
+                          idPrefix={`stack-${block.id}`}
+                          tooltipPlacement="below"
+                        />
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {integrationItems.map((item) => (
+                <IntegrationChip
+                  key={item.id}
+                  item={item}
+                  isActive={config.selectedIntegrationIds.includes(item.id)}
+                  onToggle={() => onToggleIntegration(item.id)}
+                  idPrefix={`stack-${block.id}`}
+                  tooltipPlacement="below"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface MainContentProps {
   config: ProjectConfig;
   tier: Tier;
   onToggleBlock: (blockId: string) => void;
   onSetTechChoice: (blockId: string, optionId: string) => void;
+  onToggleLibrary: (libraryId: string) => void;
+  onToggleIntegration: (integrationId: string) => void;
   onSetProjectType: (typeId: string) => void;
-  onGoHome?: () => void;
 }
 
 export function MainContent({
@@ -23,11 +219,13 @@ export function MainContent({
   tier,
   onToggleBlock,
   onSetTechChoice,
+  onToggleLibrary,
+  onToggleIntegration,
   onSetProjectType,
-  onGoHome,
 }: MainContentProps) {
   const [copied, setCopied] = useState(false);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
+  const [stackAddonTab, setStackAddonTab] = useState<StackAddonTab>('packages');
   const [mainTab, setMainTab] = useState<'architecture' | 'map' | 'prompt'>('architecture');
   const [comparingBlockId, setComparingBlockId] = useState<string | null>(null);
   const [hiddenStackLayers, setHiddenStackLayers] = useState<Set<string>>(() => new Set());
@@ -57,11 +255,6 @@ export function MainContent({
     return (
       <div className="flex-1 min-w-0 w-full overflow-y-auto bg-surface">
         <div className="max-w-7xl 2xl:max-w-[90rem] mx-auto px-8 sm:px-10 lg:px-12 py-12 animate-fade-in">
-          {onGoHome && (
-            <div className="mb-6">
-              <HomeNavButton onClick={onGoHome} iconSize={18} />
-            </div>
-          )}
           <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-[0.15em] mb-2">
             Tech Pack
           </p>
@@ -130,6 +323,30 @@ export function MainContent({
     [visibleBlocks]
   );
 
+  const visibleIntegrations = useMemo(
+    () =>
+      config.projectTypeId
+        ? getVisibleIntegrations(config.projectTypeId, tier, config.projectDescription)
+        : [],
+    [config.projectTypeId, config.projectDescription, tier],
+  );
+
+  const integrationsByCategory = useMemo(() => {
+    const map = new Map<IntegrationCategory, IntegrationItem[]>();
+    for (const c of INTEGRATION_CATEGORY_ORDER) map.set(c, []);
+    for (const item of visibleIntegrations) {
+      map.get(item.category)?.push(item);
+    }
+    return map;
+  }, [visibleIntegrations]);
+
+  useEffect(() => {
+    if (!expandedBlockId) return;
+    const block = blocks.find((b) => b.id === expandedBlockId);
+    if (!block) return;
+    setStackAddonTab(computeDefaultAddonTab(block, integrationsByCategory));
+  }, [expandedBlockId, integrationsByCategory]);
+
   const tabSurfaceClass =
     mainTab === 'map' ? 'canvas-bg' : 'bg-surface-raised';
 
@@ -145,14 +362,16 @@ export function MainContent({
             role="tabpanel"
             id={`main-tab-panel-${mainTab}`}
             aria-labelledby={`main-tab-${mainTab}`}
-            className={`flex-1 min-h-0 relative min-w-0 flex flex-col overflow-hidden ${
+            className={`flex-1 min-h-0 relative min-w-0 flex flex-col ${
               mainTab === 'map'
-                ? 'pt-16 sm:pt-[4.5rem]'
-                : stackOrPromptTabPanelPad
+                ? 'overflow-hidden pt-16 sm:pt-[4.5rem]'
+                : mainTab === 'architecture'
+                  ? `${stackOrPromptTabPanelPad} overflow-y-auto`
+                  : `${stackOrPromptTabPanelPad} overflow-hidden`
             }`}
           >
             {mainTab === 'architecture' && (
-              <div className="flex-1 min-h-0 flex flex-col gap-3 min-w-0">
+              <div className="flex flex-col gap-3 min-w-0">
                 <header className="shrink-0">
                   <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-[0.12em] mb-1">
                     Stack
@@ -167,7 +386,7 @@ export function MainContent({
                     technology choices, or collapse a section header to hide a whole layer.
                   </p>
                 </header>
-                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 min-w-0">
+                <div className="flex flex-col gap-4 min-w-0">
                 {stackGroups.map((group) => {
                   const isCollapsed = hiddenStackLayers.has(group.layerId);
                   const panelId = `stack-section-${group.layerId}`;
@@ -175,7 +394,7 @@ export function MainContent({
                   return (
                     <section
                       key={group.layerId}
-                      className="min-w-0 rounded-lg border border-rule overflow-hidden divide-y divide-rule bg-surface"
+                      className="min-w-0 shrink-0 rounded-lg border border-rule divide-y divide-rule bg-surface overflow-visible"
                     >
                       <button
                         type="button"
@@ -234,6 +453,11 @@ export function MainContent({
                               setComparingBlockId={setComparingBlockId}
                               onToggleBlock={onToggleBlock}
                               onSetTechChoice={onSetTechChoice}
+                              onToggleLibrary={onToggleLibrary}
+                              onToggleIntegration={onToggleIntegration}
+                              integrationsByCategory={integrationsByCategory}
+                              stackAddonTab={stackAddonTab}
+                              setStackAddonTab={setStackAddonTab}
                             />
                           ))}
                         </div>
@@ -334,6 +558,11 @@ function StackBlockRow({
   setComparingBlockId,
   onToggleBlock,
   onSetTechChoice,
+  onToggleLibrary,
+  onToggleIntegration,
+  integrationsByCategory,
+  stackAddonTab,
+  setStackAddonTab,
 }: {
   block: Block;
   tier: Tier;
@@ -344,6 +573,11 @@ function StackBlockRow({
   setComparingBlockId: React.Dispatch<React.SetStateAction<string | null>>;
   onToggleBlock: (blockId: string) => void;
   onSetTechChoice: (blockId: string, optionId: string) => void;
+  onToggleLibrary: (libraryId: string) => void;
+  onToggleIntegration: (integrationId: string) => void;
+  integrationsByCategory: Map<IntegrationCategory, IntegrationItem[]>;
+  stackAddonTab: StackAddonTab;
+  setStackAddonTab: (t: StackAddonTab) => void;
 }) {
   const status = block.statusForTier(tier);
   const isSelected = config.selectedBlockIds.includes(block.id);
@@ -397,7 +631,10 @@ function StackBlockRow({
         </button>
 
         {isSelected && chosenOption && (
-          <TechChoiceChip option={chosenOption} instanceId={block.id} />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <TechChoiceChip option={chosenOption} instanceId={block.id} />
+            {config.useSubagents ? <ModelChoiceChip blockId={block.id} config={config} /> : null}
+          </div>
         )}
 
         {!isRequired && !isSelected ? (
@@ -590,8 +827,70 @@ function StackBlockRow({
                 </div>
               );
             })()}
+
+          {stackRowHasAddons(block, integrationsByCategory) ? (
+            <StackOptionalAddonsPanel
+              block={block}
+              config={config}
+              addonTab={stackAddonTab}
+              setAddonTab={setStackAddonTab}
+              integrationsByCategory={integrationsByCategory}
+              onToggleLibrary={onToggleLibrary}
+              onToggleIntegration={onToggleIntegration}
+            />
+          ) : null}
         </div>
       )}
+    </div>
+  );
+}
+
+function getEffectiveModelForStackBlock(blockId: string, config: ProjectConfig) {
+  const lane = getSubagentLaneForBlock(blockId);
+  const overrideId = lane ? (config.subagentModels?.[lane.id] ?? '').trim() : '';
+  const modelId = overrideId || config.selectedModelId;
+  if (!modelId) return null;
+  const model = modelRecommendations.find((m) => m.id === modelId);
+  if (!model) return null;
+  return { model, lane, hasLaneOverride: Boolean(overrideId) };
+}
+
+function ModelChoiceChip({ blockId, config }: { blockId: string; config: ProjectConfig }) {
+  const meta = getEffectiveModelForStackBlock(blockId, config);
+  if (!meta) return null;
+  const { model, lane, hasLaneOverride } = meta;
+  const a11yId = `model-chip-desc-${blockId}`;
+  return (
+    <div className="group relative shrink-0">
+      <span id={a11yId} className="sr-only">
+        {model.name}, {model.provider}. {model.reasoning}
+        {lane
+          ? ` Subagent lane: ${lane.label}${hasLaneOverride ? ', dedicated model for this lane' : ', uses primary model'}.`
+          : ''}
+      </span>
+      <span
+        className="block max-w-[12rem] truncate text-[10px] text-ink-secondary bg-surface-raised border border-rule px-2 py-0.5 rounded-sm cursor-default outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
+        aria-describedby={a11yId}
+        tabIndex={0}
+      >
+        {model.name}
+      </span>
+      <div
+        role="tooltip"
+        className="pointer-events-none absolute z-[230] right-0 bottom-[calc(100%+6px)] w-[min(18rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+      >
+        <p className="leading-snug">
+          <span className="font-semibold text-surface">{model.name}</span>
+          <span className="text-surface/55"> ({model.provider})</span>
+        </p>
+        {lane ? (
+          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-surface/45">
+            {lane.label}
+            {hasLaneOverride ? ' · Dedicated model' : ' · Same as primary'}
+          </p>
+        ) : null}
+        <p className="mt-1.5 leading-relaxed text-surface/85">{model.reasoning}</p>
+      </div>
     </div>
   );
 }
@@ -613,7 +912,7 @@ function TechChoiceChip({ option, instanceId }: { option: TechOption; instanceId
       </span>
       <div
         role="tooltip"
-        className="pointer-events-none absolute z-[80] right-0 bottom-[calc(100%+6px)] w-[min(18rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+        className="pointer-events-none absolute z-[230] right-0 bottom-[calc(100%+6px)] w-[min(18rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
       >
         <p className="leading-relaxed">{option.description}</p>
         {option.pros.length > 0 && (

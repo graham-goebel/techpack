@@ -41,9 +41,8 @@ export function PromptsHomePage({
           Tech Packs
         </h1>
         <p className="text-sm text-ink-muted mb-10 max-w-xl leading-relaxed">
-          Saved tech packs live in this browser. Open one to keep editing, or start fresh. Use{' '}
-          <span className="text-ink-secondary font-medium">Save</span> in the workspace to add or update a pack in this
-          list.
+          Saved tech packs live in this browser. Changes are saved automatically while you work. Open a pack to keep
+          editing, or start fresh.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-10">
@@ -103,8 +102,8 @@ export function PromptsHomePage({
           </h2>
           {savedPrompts.length === 0 ? (
             <p className="text-sm text-ink-muted border border-dashed border-rule px-5 py-8 text-center leading-relaxed">
-              No saved prompts yet. Open the workspace, build a tech pack, and click{' '}
-              <span className="text-ink-secondary font-medium">Save</span> to store it here.
+              No saved packs yet. Open the workspace, choose a project type, and your tech pack will appear here
+              automatically.
             </p>
           ) : (
             <ul className="border border-rule divide-y divide-rule bg-surface">

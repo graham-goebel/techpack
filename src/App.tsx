@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { MainContent } from './components/layout/MainContent';
 import { ProjectOnboarding } from './components/onboarding/ProjectOnboarding';
 import { PromptsHomePage } from './components/home/PromptsHomePage';
+import { ProjectTypeChangeConfirmModal } from './components/ui/ProjectTypeChangeConfirmModal';
+import { HomeNavButton } from './components/ui/HomeNavButton';
 import { useProject } from './hooks/useProject';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type { ProjectConfig } from './types';
@@ -10,6 +12,7 @@ import { parseProjectConfig } from './utils/projectConfigParse';
 
 function App() {
   const [appView, setAppView] = useState<'home' | 'workspace'>('home');
+  const [pendingProjectTypeId, setPendingProjectTypeId] = useState<string | null>(null);
 
   const {
     config,
@@ -22,6 +25,8 @@ function App() {
     setProjectDescription,
     setTypeDetail,
     setModel,
+    setUseSubagents,
+    setSubagentModel,
     setTool,
     toggleLibrary,
     toggleIntegration,
@@ -44,17 +49,59 @@ function App() {
     return out.sort((a, b) => b.updatedAt - a.updatedAt);
   }, [savedConfigs]);
 
-  const handleSave = useCallback(() => {
-    setSavedConfigs((prev) => {
-      const existing = prev.findIndex((c) => c.id === config.id);
-      if (existing >= 0) {
-        const updated = [...prev];
-        updated[existing] = config;
-        return updated;
+  const configRef = useRef(config);
+  configRef.current = config;
+
+  const upsertIntoSaved = useCallback(
+    (snap: ProjectConfig) => {
+      setSavedConfigs((prev) => {
+        const ts = Date.now();
+        const next = { ...snap, updatedAt: ts };
+        const i = prev.findIndex((c) => c.id === next.id);
+        if (i >= 0) {
+          const out = [...prev];
+          out[i] = next;
+          return out;
+        }
+        return [...prev, next];
+      });
+    },
+    [setSavedConfigs],
+  );
+
+  useEffect(() => {
+    if (!config.projectTypeId) return;
+    const t = window.setTimeout(() => {
+      const snap = configRef.current;
+      if (!snap.projectTypeId) return;
+      upsertIntoSaved(snap);
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [config.updatedAt, config.projectTypeId, config.id, upsertIntoSaved]);
+
+  const requestSetProjectType = useCallback(
+    (typeId: string) => {
+      if (typeId === config.projectTypeId) return;
+      if (!config.projectTypeId) {
+        setProjectType(typeId);
+        return;
       }
-      return [...prev, config];
-    });
-  }, [config, setSavedConfigs]);
+      setPendingProjectTypeId(typeId);
+    },
+    [config.projectTypeId, setProjectType],
+  );
+
+  const confirmProjectTypeModal =
+    pendingProjectTypeId !== null ? (
+      <ProjectTypeChangeConfirmModal
+        pendingTypeId={pendingProjectTypeId}
+        onCancel={() => setPendingProjectTypeId(null)}
+        onConfirm={() => {
+          setProjectType(pendingProjectTypeId);
+          setPendingProjectTypeId(null);
+        }}
+      />
+    ) : null;
 
   const goHome = useCallback(() => setAppView('home'), []);
 
@@ -82,71 +129,94 @@ function App() {
 
   const inOnboarding = Boolean(config.projectTypeId && config.onboardingCompleted === false);
 
+  const homeCornerButton =
+    appView === 'home' ? null : (
+      <div className="fixed top-4 right-4 z-[220] sm:top-5 sm:right-6 pointer-events-auto">
+        <HomeNavButton
+          onClick={goHome}
+          iconSize={18}
+          className="border-rule bg-white/90 shadow-lg shadow-black/10 backdrop-blur-md"
+        />
+      </div>
+    );
+
   if (appView === 'home') {
     return (
-      <PromptsHomePage
-        savedPrompts={normalizedSaved}
-        currentConfig={config}
-        onOpenPrompt={handleOpenSaved}
-        onDeletePrompt={handleDeleteSaved}
-        onNewPrompt={handleNewPrompt}
-        onContinueSession={handleContinueSession}
-      />
+      <>
+        {confirmProjectTypeModal}
+        <PromptsHomePage
+          savedPrompts={normalizedSaved}
+          currentConfig={config}
+          onOpenPrompt={handleOpenSaved}
+          onDeletePrompt={handleDeleteSaved}
+          onNewPrompt={handleNewPrompt}
+          onContinueSession={handleContinueSession}
+        />
+      </>
     );
   }
 
   if (inOnboarding) {
     return (
-      <ProjectOnboarding
-        config={config}
-        tier={tier}
-        onComplete={completeOnboarding}
-        onChangeProjectType={() => setProjectType('')}
-        onSetName={setProjectName}
-        onSetDescription={setProjectDescription}
-        onSetTypeDetail={setTypeDetail}
-        onSetTool={setTool}
-        onToggleBlock={toggleBlock}
-        onToggleIntegration={toggleIntegration}
-        onAddResourceUrl={addResourceUrl}
-        onAddResourceFile={addResourceFile}
-        onRemoveResource={removeResource}
-      />
-    );
-  }
-
-  return (
-    <div className="flex h-screen overflow-hidden">
-      {config.projectTypeId ? (
-        <Sidebar
+      <>
+        {confirmProjectTypeModal}
+        {homeCornerButton}
+        <ProjectOnboarding
           config={config}
           tier={tier}
-          onSetProjectType={setProjectType}
-          onToggleBlock={toggleBlock}
-          onSetTechChoice={setTechChoice}
+          onComplete={completeOnboarding}
+          onChangeProjectType={() => requestSetProjectType('')}
           onSetName={setProjectName}
           onSetDescription={setProjectDescription}
           onSetTypeDetail={setTypeDetail}
-          onSetModel={setModel}
           onSetTool={setTool}
-          onToggleLibrary={toggleLibrary}
+          onToggleBlock={toggleBlock}
           onToggleIntegration={toggleIntegration}
           onAddResourceUrl={addResourceUrl}
           onAddResourceFile={addResourceFile}
           onRemoveResource={removeResource}
-          onSave={handleSave}
-          onGoHome={goHome}
         />
-      ) : null}
-      <MainContent
-        config={config}
-        tier={tier}
-        onToggleBlock={toggleBlock}
-        onSetTechChoice={setTechChoice}
-        onSetProjectType={setProjectType}
-        onGoHome={goHome}
-      />
-    </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {confirmProjectTypeModal}
+      {homeCornerButton}
+      <div className="flex h-screen overflow-hidden">
+        {config.projectTypeId ? (
+          <Sidebar
+            config={config}
+            tier={tier}
+            onSetProjectType={requestSetProjectType}
+            onToggleBlock={toggleBlock}
+            onSetTechChoice={setTechChoice}
+            onSetName={setProjectName}
+            onSetDescription={setProjectDescription}
+            onSetTypeDetail={setTypeDetail}
+            onSetModel={setModel}
+            onSetUseSubagents={setUseSubagents}
+            onSetSubagentModel={setSubagentModel}
+            onSetTool={setTool}
+            onToggleLibrary={toggleLibrary}
+            onToggleIntegration={toggleIntegration}
+            onAddResourceUrl={addResourceUrl}
+            onAddResourceFile={addResourceFile}
+            onRemoveResource={removeResource}
+          />
+        ) : null}
+        <MainContent
+          config={config}
+          tier={tier}
+          onToggleBlock={toggleBlock}
+          onSetTechChoice={setTechChoice}
+          onToggleLibrary={toggleLibrary}
+          onToggleIntegration={toggleIntegration}
+          onSetProjectType={requestSetProjectType}
+        />
+      </div>
+    </>
   );
 }
 

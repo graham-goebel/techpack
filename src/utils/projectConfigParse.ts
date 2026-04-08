@@ -53,8 +53,17 @@ export function parseProjectConfig(data: unknown, requireProjectType = false): P
       ? (o.typeDetails as Record<string, string>)
       : {};
 
+  const subagentModels: Record<string, string> = {};
+  if (o.subagentModels && typeof o.subagentModels === 'object' && !Array.isArray(o.subagentModels)) {
+    for (const [k, v] of Object.entries(o.subagentModels as Record<string, unknown>)) {
+      if (typeof v === 'string' && v.trim()) subagentModels[k] = v.trim();
+    }
+  }
+
   const onboardingCompleted =
     typeof o.onboardingCompleted === 'boolean' ? o.onboardingCompleted : true;
+
+  const useSubagents = typeof o.useSubagents === 'boolean' ? o.useSubagents : true;
 
   return {
     id: o.id,
@@ -64,6 +73,8 @@ export function parseProjectConfig(data: unknown, requireProjectType = false): P
     techChoices,
     projectDescription: typeof o.projectDescription === 'string' ? o.projectDescription : '',
     typeDetails,
+    useSubagents,
+    subagentModels,
     selectedModelId: typeof o.selectedModelId === 'string' ? o.selectedModelId : '',
     selectedToolIds: Array.isArray(o.selectedToolIds)
       ? (o.selectedToolIds as string[]).filter((id): id is string => typeof id === 'string').slice(0, 1)

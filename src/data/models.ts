@@ -24,6 +24,28 @@ export const modelRecommendations: ModelRecommendation[] = [
     url: 'https://openai.com',
   },
   {
+    id: 'gemini-flash',
+    name: 'Gemini Flash',
+    provider: 'Google',
+    tiers: [1, 2, 3, 4, 5, 6, 7],
+    description:
+      'Very fast multimodal model. Strong for UI iteration, layout tweaks, and copy when you want quick turnaround.',
+    reasoning:
+      'Assign UI/visual subagents to Flash to keep prompts small and costs low while iterating on components and styles.',
+    url: 'https://ai.google.dev',
+  },
+  {
+    id: 'gemini-pro',
+    name: 'Gemini Pro',
+    provider: 'Google',
+    tiers: [3, 4, 5, 6, 7],
+    description:
+      'Capable for structured frontend work, component trees, and design-system-aware UI.',
+    reasoning:
+      'Use when UI tasks need more reasoning than Flash but should stay separate from heavy backend work.',
+    url: 'https://ai.google.dev',
+  },
+  {
     id: 'sonnet-mid',
     name: 'Claude Sonnet',
     provider: 'Anthropic',
@@ -111,6 +133,20 @@ export function modelsForToolAndTier(
   return tierModels.filter((m) => allowed.has(m.id));
 }
 
+/** Drop subagent entries that are not allowed for the current tool + tier. */
+export function sanitizeSubagentModelsForTool(
+  subagentModels: Record<string, string>,
+  toolId: string | undefined,
+  tier: Tier,
+): Record<string, string> {
+  const allowed = new Set(modelsForToolAndTier(toolId, tier).map((m) => m.id));
+  const out: Record<string, string> = {};
+  for (const [laneId, modelId] of Object.entries(subagentModels)) {
+    if (modelId && allowed.has(modelId)) out[laneId] = modelId;
+  }
+  return out;
+}
+
 export const toolRecommendations: ToolRecommendation[] = [
   {
     id: 'cursor',
@@ -149,7 +185,7 @@ export const toolRecommendations: ToolRecommendation[] = [
     id: 'v0',
     name: 'v0 by Vercel',
     tiers: [1, 2, 3, 4],
-    modelIds: ['sonnet-fast', 'gpt4o-mini', 'sonnet-mid', 'gpt4o'],
+    modelIds: ['sonnet-fast', 'gpt4o-mini', 'gemini-flash', 'gemini-pro', 'sonnet-mid', 'gpt4o'],
     description:
       'AI-powered UI generator. Describe what you want and get a working component or page. Best for generating UI quickly without writing code yourself.',
     reasoning:
@@ -160,7 +196,7 @@ export const toolRecommendations: ToolRecommendation[] = [
     id: 'bolt',
     name: 'Bolt',
     tiers: [1, 2, 3, 4, 5],
-    modelIds: ['sonnet-fast', 'gpt4o-mini', 'sonnet-mid', 'gpt4o', 'sonnet-thinking', 'o3'],
+    modelIds: ['sonnet-fast', 'gpt4o-mini', 'gemini-flash', 'gemini-pro', 'sonnet-mid', 'gpt4o', 'sonnet-thinking', 'o3'],
     description:
       'Browser-based AI development environment. Build and deploy web apps directly in your browser with AI assistance. No local setup needed.',
     reasoning:
@@ -171,7 +207,7 @@ export const toolRecommendations: ToolRecommendation[] = [
     id: 'lovable',
     name: 'Lovable',
     tiers: [1, 2, 3, 4, 5],
-    modelIds: ['sonnet-fast', 'gpt4o-mini', 'sonnet-mid', 'gpt4o', 'sonnet-thinking', 'o3'],
+    modelIds: ['sonnet-fast', 'gpt4o-mini', 'gemini-flash', 'gemini-pro', 'sonnet-mid', 'gpt4o', 'sonnet-thinking', 'o3'],
     description:
       'AI-powered app builder that generates full-stack applications from descriptions. Focuses on speed and visual output with built-in deployment.',
     reasoning:
