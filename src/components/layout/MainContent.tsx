@@ -30,6 +30,11 @@ const SHOW_STACK_BLOCK_ICONS = false;
 /** What / Why explainer tabs in expanded stack rows (feature-flagged off for now). */
 const SHOW_STACK_BLOCK_EXPLAINER = false;
 
+/** Stagger delay between stack layer sections on first Stack visit */
+const STACK_LAYER_STAGGER_MS = 88;
+/** Per-layer animation duration (match .stack-layer-enter in index.css) */
+const STACK_LAYER_ANIM_MS = 550;
+
 type StackAddonTab = IntegrationCategory | 'packages';
 
 function stackAddonTabLabel(tab: StackAddonTab): string {
@@ -475,6 +480,8 @@ export function MainContent({
   const [mainTab, setMainTab] = useState<'architecture' | 'map' | 'prompt'>('architecture');
   const [comparingBlockId, setComparingBlockId] = useState<string | null>(null);
   const [hiddenStackLayers, setHiddenStackLayers] = useState<Set<string>>(() => new Set());
+  /** After first Stack entrance sequence, layer sections render without stagger */
+  const [stackLayerIntroComplete, setStackLayerIntroComplete] = useState(false);
 
   const toggleStackLayerVisibility = useCallback((layerId: string) => {
     setHiddenStackLayers((prev) => {
@@ -503,9 +510,39 @@ export function MainContent({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const visibleBlocks = useMemo(
+    () =>
+      blocks
+        .filter((b) => b.statusForTier(tier) !== 'hidden')
+        .sort((a, b) => {
+          const order = { required: 0, recommended: 1, optional: 2, hidden: 3 };
+          return order[a.statusForTier(tier)] - order[b.statusForTier(tier)];
+        }),
+    [tier],
+  );
+
+  const stackGroups = useMemo(
+    () => groupVisibleBlocksByStackLayer(visibleBlocks),
+    [visibleBlocks],
+  );
+
+  useEffect(() => {
+    if (!config.projectTypeId) return;
+    if (mainTab !== 'architecture') {
+      setStackLayerIntroComplete(true);
+      return;
+    }
+    if (stackLayerIntroComplete) return;
+
+    const n = stackGroups.length;
+    const settleMs = Math.max(0, n - 1) * STACK_LAYER_STAGGER_MS + STACK_LAYER_ANIM_MS + 100;
+    const id = window.setTimeout(() => setStackLayerIntroComplete(true), settleMs);
+    return () => window.clearTimeout(id);
+  }, [config.projectTypeId, mainTab, stackGroups.length, stackLayerIntroComplete]);
+
   if (!config.projectTypeId) {
     return (
-      <div className="relative flex-1 min-w-0 w-full overflow-y-auto bg-surface">
+      <div className="relative flex-1 min-w-0 w-full overflow-y-auto bg-surface [scrollbar-gutter:stable]">
         {onExitWithoutSaving ? (
           <FloatingWorkspaceExitButton
             onClick={onExitWithoutSaving}
@@ -574,22 +611,6 @@ export function MainContent({
     );
   }
 
-  const visibleBlocks = useMemo(
-    () =>
-      blocks
-        .filter((b) => b.statusForTier(tier) !== 'hidden')
-        .sort((a, b) => {
-          const order = { required: 0, recommended: 1, optional: 2, hidden: 3 };
-          return order[a.statusForTier(tier)] - order[b.statusForTier(tier)];
-        }),
-    [tier]
-  );
-
-  const stackGroups = useMemo(
-    () => groupVisibleBlocksByStackLayer(visibleBlocks),
-    [visibleBlocks]
-  );
-
   const visibleIntegrations = useMemo(
     () =>
       config.projectTypeId
@@ -621,6 +642,8 @@ export function MainContent({
     mainTab === 'map' ? 'px-3 sm:px-4' : 'px-6 sm:px-10 lg:px-12';
   const workspaceContentPad =
     'px-6 pb-5 pt-4 sm:px-10 sm:pb-6 sm:pt-5 lg:px-12 lg:pb-8';
+
+  const showStackLayerStagger = mainTab === 'architecture' && !stackLayerIntroComplete;
 
   return (
     <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-surface">
@@ -674,7 +697,7 @@ export function MainContent({
             <div
               className={
                 mainTab === 'architecture'
-                  ? `min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${workspaceContentPad}`
+                  ? `min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable] ${workspaceContentPad}`
                   : mainTab === 'map'
                     ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
                     : `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${workspaceContentPad}`
@@ -682,7 +705,7 @@ export function MainContent({
             >
             {mainTab === 'architecture' && (
               <div className="mx-auto min-w-0 w-full max-w-[52rem] px-0 py-4 sm:py-5">
-                  <header className="shrink-0 pb-4">
+                  <header className={`shrink-0 pb-4 ${showStackLayerStagger ? 'stack-intro-header' : ''}`}>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                       <div className="min-w-0 space-y-2">
                         <p
@@ -708,21 +731,26 @@ export function MainContent({
                   </header>
 
                   <div className="mt-5 flex min-w-0 flex-col gap-8">
-                {stackGroups.map((group) => {
+                {stackGroups.map((group, layerIdx) => {
                   const isCollapsed = hiddenStackLayers.has(group.layerId);
                   const panelId = `stack-section-${group.layerId}`;
                   const headId = `stack-section-head-${group.layerId}`;
                   return (
                     <section
                       key={group.layerId}
-                      className="min-w-0 shrink-0 divide-y divide-rule overflow-visible rounded-lg border border-rule bg-surface/95"
+                      className={`min-w-0 shrink-0 divide-y divide-rule overflow-visible rounded-lg border border-rule bg-surface/95 ${
+                        showStackLayerStagger ? 'stack-layer-enter' : ''
+                      }`}
+                      style={
+                        showStackLayerStagger
+                          ? { animationDelay: `${layerIdx * STACK_LAYER_STAGGER_MS}ms` }
+                          : undefined
+                      }
                     >
                       <button
                         type="button"
                         onClick={() => toggleStackLayerVisibility(group.layerId)}
-                        className={`flex w-full items-center justify-between gap-3 bg-surface-raised/40 px-4 text-left transition-[padding,background-color] duration-300 ease-out motion-reduce:duration-150 hover:bg-surface-raised/90 ${
-                          isCollapsed ? 'py-4' : 'py-2.5'
-                        }`}
+                        className="flex w-full items-center justify-between gap-3 bg-surface-raised/40 px-4 py-5 text-left transition-colors duration-300 ease-out motion-reduce:duration-150 hover:bg-surface-raised/90"
                         aria-expanded={!isCollapsed}
                         aria-controls={panelId}
                         id={headId}
@@ -821,7 +849,7 @@ export function MainContent({
                     {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                <pre className="flex-1 min-h-0 overflow-auto p-5 text-[10px] text-ink-secondary font-mono leading-[1.7] whitespace-pre-wrap">
+                <pre className="flex-1 min-h-0 overflow-auto p-5 text-[10px] text-ink-secondary font-mono leading-[1.7] whitespace-pre-wrap [scrollbar-gutter:stable]">
                   {prompt || 'Configure your project to generate a prompt.'}
                 </pre>
               </div>

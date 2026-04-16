@@ -29,7 +29,7 @@ export function PromptsHomePage({
   const typeMeta = (id: string) => projectTypes.find((t) => t.id === id);
 
   return (
-    <div className="min-h-screen overflow-y-auto bg-surface">
+    <div className="min-h-screen overflow-y-auto bg-surface [scrollbar-gutter:stable]">
       <button
         type="button"
         onClick={onNewPrompt}

@@ -196,7 +196,7 @@ export function ProjectOnboarding({
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-8 sm:px-10 lg:px-12">
+      <div className="flex-1 min-h-0 overflow-y-auto px-8 sm:px-10 lg:px-12 [scrollbar-gutter:stable]">
         <div className="mx-auto w-full min-w-0 max-w-3xl py-8 sm:py-10 pb-32">
           {step === 'details' && (
             <div className="space-y-6 animate-fade-in">

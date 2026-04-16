@@ -13,7 +13,7 @@ export type CustomSelectOption = {
   label: string;
   /** Shown under the label in the dropdown list only (not on the closed trigger) */
   description?: string;
-  /** When set (e.g. AI tool id), shows a brand glyph instead of the selection dot */
+  /** When set (e.g. AI tool id), shows a brand glyph at the start of the row */
   iconKey?: string;
   /** Small pill next to the label (closed trigger + list row), e.g. “default” */
   tag?: string;
@@ -185,8 +185,7 @@ export function CustomSelect({
                 : sidebarMd
                   ? 'px-3 py-4 gap-2'
                   : 'px-3 py-2 gap-2';
-            const dotMt = size === 'sm' ? 'mt-1' : sidebarMd ? 'mt-0.5' : 'mt-1.5';
-            const dotSz = size === 'sm' ? 'h-1.5 w-1.5' : 'h-2 w-2';
+            const iconMt = size === 'sm' ? 'mt-1' : sidebarMd ? 'mt-0.5' : 'mt-1.5';
             const leadSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
             const optionRowClass =
               sidebarMd
@@ -210,15 +209,8 @@ export function CustomSelect({
                 className={`flex w-full items-start text-left transition-colors ${optPad} ${optionText} ${optionRowClass}`}
               >
                 {opt.iconKey ? (
-                  <ToolLogoGlyph toolId={opt.iconKey} className={`${dotMt} ${leadSize} shrink-0 text-ink`} />
-                ) : (
-                  <span
-                    className={`${dotMt} ${dotSz} shrink-0 rounded-full border-2 ${
-                      isSelected ? 'border-ink bg-ink' : 'border-ink-faint'
-                    }`}
-                    aria-hidden
-                  />
-                )}
+                  <ToolLogoGlyph toolId={opt.iconKey} className={`${iconMt} ${leadSize} shrink-0 text-ink`} />
+                ) : null}
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-snug">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className={`min-w-0 truncate ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>

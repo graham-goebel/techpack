@@ -470,7 +470,7 @@ export function ArchitectureFlowCanvas({
               Close
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-gutter:stable]">
             <div className="px-3 py-2.5 border-b border-rule">
               <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">What is this</p>
               <p className="text-[10px] text-ink-secondary leading-relaxed">{expandedBlock.explanation}</p>

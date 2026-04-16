@@ -649,7 +649,7 @@ export function Sidebar({
 
       {/* Single scroll column — one rail panel at a time */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-24">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-24 [scrollbar-gutter:stable]">
           <div className="flex min-w-0 flex-col">
         {activePanel === 'type' && (
           <div className="animate-fade-in">
