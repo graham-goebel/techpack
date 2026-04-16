@@ -6,14 +6,14 @@ interface HomeNavButtonProps {
   iconSize?: number;
 }
 
-export function HomeNavButton({ onClick, className = '', iconSize = 18 }: HomeNavButtonProps) {
+export function HomeNavButton({ onClick, className = '', iconSize = 22 }: HomeNavButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label="Home"
       title="Home"
-      className={`inline-flex shrink-0 items-center justify-center rounded-md border border-rule p-2 text-ink-muted transition-colors hover:border-rule-strong hover:bg-surface-raised hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 ${className}`}
+      className={`inline-flex size-11 shrink-0 items-center justify-center rounded-none border border-rule p-0 text-ink-muted transition-colors sm:size-12 hover:border-rule-strong hover:bg-surface-raised hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 ${className}`}
     >
       <svg
         width={iconSize}

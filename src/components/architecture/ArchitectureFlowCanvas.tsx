@@ -310,11 +310,11 @@ export function ArchitectureFlowCanvas({
             e.stopPropagation();
             centerView();
           }}
-          className="text-[9px] font-bold uppercase tracking-wider text-ink-muted hover:text-ink border border-rule bg-white/90 backdrop-blur-sm px-2 py-1 shadow-sm"
+          className="text-[10px] font-bold uppercase tracking-wider text-ink-muted hover:text-ink border border-rule bg-white/90 backdrop-blur-sm px-2 py-1 shadow-sm"
         >
           Fit view
         </button>
-        <p className="text-[8px] text-ink-faint max-w-[140px] leading-snug">
+        <p className="text-[10px] text-ink-faint max-w-[140px] leading-snug">
           Scroll to zoom · drag canvas to pan
         </p>
       </div>
@@ -332,7 +332,7 @@ export function ArchitectureFlowCanvas({
         {layout.layerLabels.map((label, i) => (
           <div
             key={`lbl-${i}`}
-            className="absolute text-[8px] font-bold text-neutral-300 uppercase tracking-[0.2em] w-full text-center pointer-events-none select-none"
+            className="absolute text-[10px] font-bold text-neutral-300 uppercase tracking-[0.2em] w-full text-center pointer-events-none select-none"
             style={{ top: layout.layerYs[i] - 16 }}
           >
             {label}
@@ -420,14 +420,14 @@ export function ArchitectureFlowCanvas({
                       <BlockOcticon blockId={block.id} size={16} />
                     </span>
                     <span
-                      className={`text-[12px] font-semibold tracking-tight leading-snug ${
+                      className={`text-[10px] font-semibold tracking-tight leading-snug ${
                         isSelected || isRequired ? 'text-ink' : 'text-neutral-400'
                       }`}
                     >
                       {block.name}
                     </span>
                     <span
-                      className={`text-[9px] font-semibold shrink-0 ${
+                      className={`text-[10px] font-semibold shrink-0 ${
                         status === 'required'
                           ? 'text-ink-muted'
                           : status === 'recommended'
@@ -445,13 +445,13 @@ export function ArchitectureFlowCanvas({
                   {isSelected && (
                     <>
                       {chosenOption ? (
-                        <p className="text-[11px] text-ink-muted leading-snug truncate mt-1">
+                        <p className="text-[10px] text-ink-muted leading-snug truncate mt-1">
                           {chosenOption.name}
                         </p>
                       ) : (
                         <p className="text-[10px] text-ink-faint italic mt-1">Choose technology →</p>
                       )}
-                      <p className="text-[11px] text-ink-muted leading-snug line-clamp-2 mt-1">
+                      <p className="text-[10px] text-ink-muted leading-snug line-clamp-2 mt-1">
                         {block.summary}
                       </p>
                     </>
@@ -467,7 +467,7 @@ export function ArchitectureFlowCanvas({
       {expandedBlock && expandedMeta?.isSelected && (
         <div
           data-flow-panel
-          className="absolute z-30 right-3 top-3 bottom-3 w-96 max-w-[calc(100%-24px)] max-h-[calc(100%-24px)] flex flex-col bg-white border border-rule shadow-md animate-fade-in pointer-events-auto"
+          className="absolute z-30 right-3 top-3 h-[min(80vh,calc(100%-24px))] w-96 max-w-[calc(100%-24px)] flex flex-col bg-white border border-rule shadow-md animate-fade-in pointer-events-auto"
           onPointerDown={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >
@@ -476,29 +476,29 @@ export function ArchitectureFlowCanvas({
               <span className="text-ink-muted flex items-center shrink-0" aria-hidden>
                 <BlockOcticon blockId={expandedBlock.id} size={20} />
               </span>
-              <span className="text-[11px] font-bold text-ink truncate">{expandedBlock.name}</span>
+              <span className="text-[10px] font-bold text-ink truncate">{expandedBlock.name}</span>
             </div>
             <button
               type="button"
               onClick={() => onExpandToggle(null)}
-              className="text-[9px] font-bold uppercase tracking-wider text-ink-muted hover:text-ink shrink-0"
+              className="text-[10px] font-bold uppercase tracking-wider text-ink-muted hover:text-ink shrink-0"
             >
               Close
             </button>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="px-3 py-2.5 border-b border-rule">
-              <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">What is this</p>
+              <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">What is this</p>
               <p className="text-[10px] text-ink-secondary leading-relaxed">{expandedBlock.explanation}</p>
             </div>
             <div className="px-3 py-2.5 border-b border-rule">
-              <p className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">Why</p>
+              <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">Why</p>
               <p className="text-[10px] text-ink-secondary leading-relaxed">{expandedBlock.whyNeeded}</p>
             </div>
             {expandedMeta.blockOptions.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 bg-neutral-50 border-b border-neutral-100">
-                  <span className="text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]">Technology</span>
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em]">Technology</span>
                 </div>
                 {expandedMeta.blockOptions.map((option) => {
                   const isChosen = expandedMeta.chosenOptionId === option.id;
@@ -522,14 +522,14 @@ export function ArchitectureFlowCanvas({
                         <span className="text-[10px] font-bold flex-1 truncate">{option.name}</span>
                         {option.isDefault && (
                           <span
-                            className={`text-[8px] font-bold uppercase ${isChosen ? 'text-white/40' : 'text-accent'}`}
+                            className={`text-[10px] font-bold uppercase ${isChosen ? 'text-white/40' : 'text-accent'}`}
                           >
                             Default
                           </span>
                         )}
                       </div>
                       <p
-                        className={`text-[9px] leading-snug mt-0.5 ml-4 line-clamp-2 ${
+                        className={`text-[10px] leading-snug mt-0.5 ml-4 line-clamp-2 ${
                           isChosen ? 'text-white/50' : 'text-ink-muted'
                         }`}
                       >

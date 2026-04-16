@@ -81,7 +81,7 @@ export function ResourcesPanel({
     <div
       className={
         isSidebar
-          ? 'flex flex-col gap-3 w-full min-w-0 max-w-full min-h-0 flex-1 overflow-x-hidden animate-fade-in box-border'
+          ? 'box-border flex w-full max-w-full min-w-0 flex-col gap-3 overflow-x-hidden animate-fade-in'
           : 'flex flex-col gap-5 p-5 sm:p-6 max-w-2xl mx-auto w-full animate-fade-in'
       }
     >
@@ -90,11 +90,11 @@ export function ResourcesPanel({
           Files
         </p>
         {isSidebar ? (
-          <p className="text-[9px] text-ink-muted leading-snug mb-2 break-words">
+          <p className="text-[10px] text-ink-muted leading-snug mb-2 break-words">
             Browser only — max {formatBytes(MAX_FILE_BYTES)} per file.
           </p>
         ) : (
-          <p className="text-[11px] text-ink-secondary leading-snug mb-3">
+          <p className="text-[10px] text-ink-secondary leading-snug mb-3">
             Drop reference files (specs, mockups, notes). Stored in this browser only; keep under{' '}
             {formatBytes(MAX_FILE_BYTES)} each for local storage.
           </p>
@@ -150,11 +150,11 @@ export function ResourcesPanel({
             }}
           />
           <p
-            className={`font-semibold text-ink break-words hyphens-auto ${isSidebar ? 'text-[11px]' : 'text-[12px]'}`}
+            className={`font-semibold text-ink break-words hyphens-auto ${isSidebar ? 'text-[10px]' : 'text-[10px]'}`}
           >
             Drop files or click to browse
           </p>
-          <p className={`text-ink-muted mt-1 break-words ${isSidebar ? 'text-[9px]' : 'text-[10px]'}`}>
+          <p className={`text-ink-muted mt-1 break-words ${isSidebar ? 'text-[10px]' : 'text-[10px]'}`}>
             PDF, images, text, JSON…
           </p>
         </div>
@@ -178,7 +178,7 @@ export function ResourcesPanel({
           }
         >
           <div className="flex-1 min-w-0 max-w-full space-y-1">
-            <label className="text-[8px] font-bold text-ink-faint uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-ink-faint uppercase tracking-wider block">
               Label
             </label>
             <input
@@ -186,11 +186,11 @@ export function ResourcesPanel({
               value={urlLabel}
               onChange={(e) => setUrlLabel(e.target.value)}
               placeholder="e.g. API docs"
-              className="w-full min-w-0 max-w-full border border-rule bg-surface px-2.5 py-1.5 text-[11px] text-ink placeholder:text-ink-faint focus:outline-none focus:border-ink/30 box-border"
+              className="w-full min-w-0 max-w-full border border-rule bg-surface px-2.5 py-1.5 text-[10px] text-ink placeholder:text-ink-faint focus:outline-none focus:border-ink/30 box-border"
             />
           </div>
           <div className="flex-[2] min-w-0 max-w-full space-y-1">
-            <label className="text-[8px] font-bold text-ink-faint uppercase tracking-wider block">
+            <label className="text-[10px] font-bold text-ink-faint uppercase tracking-wider block">
               URL
             </label>
             <input
@@ -198,12 +198,12 @@ export function ResourcesPanel({
               value={urlValue}
               onChange={(e) => setUrlValue(e.target.value)}
               placeholder="https://…"
-              className="w-full min-w-0 max-w-full border border-rule bg-surface px-2.5 py-1.5 text-[11px] text-ink placeholder:text-ink-faint focus:outline-none focus:border-ink/30 box-border"
+              className="w-full min-w-0 max-w-full border border-rule bg-surface px-2.5 py-1.5 text-[10px] text-ink placeholder:text-ink-faint focus:outline-none focus:border-ink/30 box-border"
             />
           </div>
           <button
             type="submit"
-            className={`border border-rule bg-ink text-surface px-4 py-2 text-[9px] font-bold uppercase tracking-wider hover:bg-ink-secondary transition-colors box-border ${
+            className={`border border-rule bg-surface px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-ink-secondary transition-colors hover:border-rule-strong hover:bg-surface-raised hover:text-ink box-border ${
               isSidebar ? 'w-full max-w-full' : 'shrink-0 sm:mb-px'
             }`}
           >
@@ -212,24 +212,18 @@ export function ResourcesPanel({
         </form>
       </div>
 
-      <div
-        className={
-          isSidebar ? 'min-w-0 max-w-full min-h-0 flex-1 flex flex-col' : undefined
-        }
-      >
+      <div className={isSidebar ? 'flex min-w-0 max-w-full flex-col' : undefined}>
         <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2 break-words">
           Your resources ({resources.length})
         </p>
         {resources.length === 0 ? (
-          <p className="text-[11px] text-ink-faint py-6 text-center border border-rule rounded-lg bg-surface-raised/50 break-words px-2">
+          <p className="text-[10px] text-ink-faint py-6 text-center border border-rule rounded-lg bg-surface-raised/50 break-words px-2">
             No resources yet. Add links or drop files above.
           </p>
         ) : (
           <ul
-            className={`border border-rule rounded-lg divide-y divide-rule bg-surface min-w-0 max-w-full ${
-              isSidebar
-                ? 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden'
-                : ''
+            className={`min-w-0 max-w-full divide-y divide-rule rounded-lg border border-rule bg-surface ${
+              isSidebar ? 'overflow-x-hidden' : ''
             }`}
           >
             {resources.map((r) => (
@@ -240,7 +234,7 @@ export function ResourcesPanel({
                 <div className="min-w-0 flex-1 overflow-hidden">
                   {r.kind === 'url' ? (
                     <>
-                      <p className="text-[11px] font-bold text-ink truncate max-w-full">{r.label}</p>
+                      <p className="text-[10px] font-bold text-ink truncate max-w-full">{r.label}</p>
                       <a
                         href={r.url}
                         target="_blank"
@@ -252,8 +246,8 @@ export function ResourcesPanel({
                     </>
                   ) : (
                     <>
-                      <p className="text-[11px] font-bold text-ink truncate max-w-full">{r.fileName}</p>
-                      <p className="text-[9px] text-ink-muted break-all">
+                      <p className="text-[10px] font-bold text-ink truncate max-w-full">{r.fileName}</p>
+                      <p className="text-[10px] text-ink-muted break-all">
                         {r.mimeType || 'file'} · {formatBytes(r.sizeBytes)}
                       </p>
                       <a
@@ -269,7 +263,7 @@ export function ResourcesPanel({
                 <button
                   type="button"
                   onClick={() => onRemove(r.id)}
-                  className="shrink-0 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-ink-faint hover:text-ink py-1 whitespace-nowrap"
+                  className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-ink-faint hover:text-ink py-1 whitespace-nowrap"
                 >
                   Remove
                 </button>

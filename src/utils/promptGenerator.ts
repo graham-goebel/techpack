@@ -144,6 +144,15 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
   sections.push(`## Type: ${projectType.name}`);
   sections.push('');
 
+  if (config.buildAsYouGo) {
+    sections.push('## Workflow');
+    sections.push('');
+    sections.push(
+      '**Build as you go:** Prioritize clarifying the product concept and user outcomes. Treat stack choices in this brief as guidance, not hard requirements — propose alternatives, challenge assumptions, and refine technology as understanding improves.',
+    );
+    sections.push('');
+  }
+
   pushModelToolsAndSubagentSections(sections, config, models, tools);
 
   // Description

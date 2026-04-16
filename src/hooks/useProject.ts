@@ -27,6 +27,7 @@ function createEmptyConfig(): ProjectConfig {
     selectedLibraryIds: [],
     selectedIntegrationIds: [],
     resources: [],
+    buildAsYouGo: false,
     useSubagents: true,
     subagentModels: {},
     createdAt: Date.now(),
@@ -88,6 +89,7 @@ export function useProject() {
           selectedLibraryIds: [],
           selectedIntegrationIds: [],
           resources: [],
+          buildAsYouGo: false,
           useSubagents: true,
           subagentModels: {},
           onboardingCompleted: undefined,
@@ -133,6 +135,7 @@ export function useProject() {
         selectedLibraryIds: [],
         selectedIntegrationIds: [],
         resources: [],
+        buildAsYouGo: false,
         useSubagents: true,
         subagentModels: {},
         onboardingCompleted: false,
@@ -217,6 +220,14 @@ export function useProject() {
     setConfig((prev) => ({
       ...prev,
       useSubagents: value,
+      updatedAt: Date.now(),
+    }));
+  }, []);
+
+  const setBuildAsYouGo = useCallback((value: boolean) => {
+    setConfig((prev) => ({
+      ...prev,
+      buildAsYouGo: value,
       updatedAt: Date.now(),
     }));
   }, []);
@@ -375,6 +386,7 @@ export function useProject() {
     setTypeDetail,
     setModel,
     setUseSubagents,
+    setBuildAsYouGo,
     setSubagentModel,
     setTool,
     toggleLibrary,

@@ -1,10 +1,20 @@
-import { useEffect, useId, useRef, useState, type PointerEventHandler } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type PointerEventHandler,
+  type ReactNode,
+} from 'react';
+import { ToolLogoGlyph } from '../icons/ToolLogoGlyph';
 
 export type CustomSelectOption = {
   value: string;
   label: string;
   /** Shown under the label in the dropdown list only (not on the closed trigger) */
   description?: string;
+  /** When set (e.g. AI tool id), shows a brand glyph instead of the selection dot */
+  iconKey?: string;
 };
 
 export type CustomSelectProps = {
@@ -18,9 +28,20 @@ export type CustomSelectProps = {
   /** Shown when value does not match any option */
   placeholder?: string;
   size?: 'sm' | 'md';
+  /**
+   * `sidebar` — match AI & tooling tool list: 10px semibold labels, compact rows (use with `size="md"` in the rail).
+   */
+  variant?: 'default' | 'sidebar';
   className?: string;
+  /** Merged onto the trigger button after defaults (e.g. sidebar field styling) */
+  triggerClassName?: string;
   /** Extra classes on the options panel (e.g. max height) */
   listClassName?: string;
+  /**
+   * Renders below the scrollable option list inside the open panel (e.g. “Compare all”).
+   * Use `close()` to dismiss the panel after an action.
+   */
+  listFooter?: (ctx: { close: () => void }) => ReactNode;
   /** e.g. stopPropagation when nested in clickable rows */
   onTriggerPointerDown?: PointerEventHandler<HTMLButtonElement>;
 };
@@ -35,8 +56,11 @@ export function CustomSelect({
   'aria-labelledby': ariaLabelledBy,
   placeholder = 'Select…',
   size = 'md',
+  variant = 'default',
   className = '',
+  triggerClassName = '',
   listClassName = '',
+  listFooter,
   onTriggerPointerDown,
 }: CustomSelectProps) {
   const autoId = useId();
@@ -65,12 +89,20 @@ export function CustomSelect({
     };
   }, [open]);
 
+  const sidebarMd =
+    variant === 'sidebar' && size === 'md';
+
   const sizeClasses =
     size === 'sm'
-      ? 'px-2 py-1.5 text-[11px] rounded-md min-h-[34px]'
-      : 'px-3 py-2 text-sm rounded-md min-h-[42px]';
+      ? 'px-2 py-1.5 text-[10px] rounded-md min-h-[34px]'
+      : sidebarMd
+        ? 'px-3 py-2.5 text-[10px] font-semibold leading-tight rounded-md min-h-[44px]'
+        : 'px-3 py-2 text-sm rounded-md min-h-[42px]';
 
-  const optionText = size === 'sm' ? 'text-[11px]' : 'text-sm';
+  const optionText =
+    size === 'sm' ? 'text-[10px]' : sidebarMd ? 'text-[10px] font-semibold leading-tight' : 'text-sm';
+
+  const triggerLabelWeight = sidebarMd ? 'font-semibold' : 'font-medium';
 
   return (
     <div ref={containerRef} className={`relative w-full ${className}`}>
@@ -101,9 +133,17 @@ export function CustomSelect({
         }}
         className={`flex w-full items-center justify-between gap-2 border border-rule bg-surface text-left text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/15 disabled:pointer-events-none disabled:opacity-50 ${sizeClasses} ${
           open ? 'border-ink/25 ring-1 ring-ink/10' : 'hover:bg-surface-raised'
-        }`}
+        } ${triggerClassName}`}
       >
-        <span className="min-w-0 flex-1 truncate font-medium text-ink">{displayLabel}</span>
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          {selectedOption?.iconKey ? (
+            <ToolLogoGlyph
+              toolId={selectedOption.iconKey}
+              className={size === 'sm' ? 'h-4 w-4 text-ink' : 'h-5 w-5 text-ink'}
+            />
+          ) : null}
+          <span className={`min-w-0 flex-1 truncate text-ink ${triggerLabelWeight}`}>{displayLabel}</span>
+        </span>
         <svg
           className={`h-4 w-4 shrink-0 text-ink-muted transition-transform duration-150 ${
             open ? 'rotate-180' : ''
@@ -120,17 +160,34 @@ export function CustomSelect({
 
       {open && !disabled && (
         <div
-          id={listboxId}
-          role="listbox"
-          aria-labelledby={ariaLabelledBy}
-          aria-label={ariaLabel}
-          className={`absolute left-0 right-0 z-[230] mt-1 max-h-[min(16rem,45vh)] overflow-y-auto rounded-md border border-rule bg-surface py-1 shadow-md ${listClassName}`}
+          className="absolute left-0 right-0 z-[230] mt-1 overflow-hidden rounded-md border border-rule bg-surface shadow-md"
         >
+          <div
+            id={listboxId}
+            role="listbox"
+            aria-labelledby={ariaLabelledBy}
+            aria-label={ariaLabel}
+            className={`max-h-[min(16rem,45vh)] overflow-y-auto py-1 ${listClassName}`}
+          >
           {options.map((opt, idx) => {
             const isSelected = opt.value === value;
-            const optPad = size === 'sm' ? 'px-2 py-1.5 gap-1.5' : 'px-3 py-2 gap-2';
-            const dotMt = size === 'sm' ? 'mt-1' : 'mt-1.5';
+            const optPad =
+              size === 'sm'
+                ? 'px-2 py-1.5 gap-1.5'
+                : sidebarMd
+                  ? 'px-3 py-2.5 gap-2'
+                  : 'px-3 py-2 gap-2';
+            const dotMt = size === 'sm' ? 'mt-1' : sidebarMd ? 'mt-0.5' : 'mt-1.5';
             const dotSz = size === 'sm' ? 'h-1.5 w-1.5' : 'h-2 w-2';
+            const leadSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
+            const optionRowClass =
+              sidebarMd
+                ? isSelected
+                  ? 'bg-surface-raised text-ink'
+                  : 'text-ink-secondary hover:bg-surface-raised'
+                : isSelected
+                  ? 'bg-surface-raised text-ink font-semibold'
+                  : 'text-ink-secondary hover:bg-surface-raised';
             return (
               <button
                 key={`${opt.value}-${idx}`}
@@ -142,18 +199,18 @@ export function CustomSelect({
                   onChange(opt.value);
                   setOpen(false);
                 }}
-                className={`flex w-full items-start text-left transition-colors ${optPad} ${optionText} ${
-                  isSelected
-                    ? 'bg-surface-raised text-ink font-semibold'
-                    : 'text-ink-secondary hover:bg-surface-raised'
-                }`}
+                className={`flex w-full items-start text-left transition-colors ${optPad} ${optionText} ${optionRowClass}`}
               >
-                <span
-                  className={`${dotMt} ${dotSz} shrink-0 rounded-full border-2 ${
-                    isSelected ? 'border-ink bg-ink' : 'border-ink-faint'
-                  }`}
-                  aria-hidden
-                />
+                {opt.iconKey ? (
+                  <ToolLogoGlyph toolId={opt.iconKey} className={`${dotMt} ${leadSize} shrink-0 text-ink`} />
+                ) : (
+                  <span
+                    className={`${dotMt} ${dotSz} shrink-0 rounded-full border-2 ${
+                      isSelected ? 'border-ink bg-ink' : 'border-ink-faint'
+                    }`}
+                    aria-hidden
+                  />
+                )}
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-snug">
                   <span className={isSelected ? 'text-ink' : 'text-ink-secondary'}>{opt.label}</span>
                   {opt.description ? (
@@ -169,6 +226,12 @@ export function CustomSelect({
               </button>
             );
           })}
+          </div>
+          {listFooter ? (
+            <div className="border-t border-rule bg-surface-raised/60 px-2 py-1.5">
+              {listFooter({ close: () => setOpen(false) })}
+            </div>
+          ) : null}
         </div>
       )}
     </div>

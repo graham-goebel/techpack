@@ -108,6 +108,11 @@ export interface ProjectConfig {
   /** ID of the user-chosen AI model (from modelRecommendations) */
   selectedModelId: string;
   /**
+   * When true, prioritize product/concept iteration and let the coding agent propose or refine stack choices.
+   * When false, treat sidebar tech selections as the source of truth for prompts.
+   */
+  buildAsYouGo: boolean;
+  /**
    * When true, show per-block subagent model picks and include subagent routing in the prompt.
    * When false, only the primary model applies and subagent UI is hidden.
    */

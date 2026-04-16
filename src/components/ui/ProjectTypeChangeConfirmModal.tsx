@@ -64,14 +64,14 @@ export function ProjectTypeChangeConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-ink-muted border border-rule hover:bg-surface-raised transition-colors rounded-md"
+            className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted border border-rule hover:bg-surface-raised transition-colors rounded-md"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider bg-ink text-surface hover:opacity-90 transition-opacity rounded-md"
+            className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider bg-ink text-surface hover:opacity-90 transition-opacity rounded-md"
           >
             {clearing ? 'Clear and continue' : 'Switch type'}
           </button>

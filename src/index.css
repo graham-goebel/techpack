@@ -1,8 +1,36 @@
 @import "tailwindcss";
 
+/* Geist (Vercel) — variable fonts from npm; Vite resolves these URLs at build time */
+@font-face {
+  font-family: "Geist";
+  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Alias used by some tooling / docs; same file as Geist Sans variable */
+@font-face {
+  font-family: "Geist Sans";
+  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --font-sans: "Instrument Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+  /* Main UI: Geist Sans variable (npm package); mono for code / labels */
+  --font-sans:
+    "Geist", "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
 
   --color-ink: #0a0a0a;
   --color-ink-secondary: #404040;
@@ -31,6 +59,7 @@
 
 html {
   scroll-behavior: smooth;
+  font-family: var(--font-sans);
 }
 
 body {
@@ -39,6 +68,19 @@ body {
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Inherit Geist on form controls (UA defaults often ignore body font) */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+#root {
+  min-height: 100%;
+  font-family: inherit;
 }
 
 ::selection {
@@ -63,14 +105,80 @@ body {
 
 /* Shared chrome row — sidebar masthead + main top bar align */
 .app-chrome-row {
-  min-height: 5.125rem; /* 82px */
+  min-height: 4.375rem; /* 70px — aligned chrome, slightly denser than 82px */
   box-sizing: border-box;
 }
 
-/* Same base as Stack/Prompt (`bg-surface-raised`); dots only differentiate the map */
-.canvas-bg {
-  background-color: var(--color-surface-raised);
+/**
+ * Geist marketing grid (vercel.com/font, Geist Grid — geist/grid):
+ * two-register background — orthogonal major guides + finer dot texture.
+ * Rescale the full stack with --geist-grid-major; dot step uses --geist-grid-dot
+ * (field/map presets set dot to major / 3.2 for a consistent sub-rhythm).
+ * Map uses --map; Stack/Prompt stay flat (bg-surface-raised) — only the diagram canvas is a “field.”
+ */
+.geist-grid {
+  --geist-grid-bg: var(--color-surface);
+  --geist-grid-major: 24px;
+  --geist-grid-dot: 8px;
+  --geist-line-a: 0.046;
+  --geist-dot-paint: rgba(190, 190, 190, 0.7);
+  --geist-dot-r: 0.4px;
+
+  /* Isolate pattern paint to its own layer — smoother scroll than repainting large gradients each frame */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  background-color: var(--geist-grid-bg);
   background-image:
-    radial-gradient(circle, var(--color-rule-strong) 0.7px, transparent 0.7px);
-  background-size: 16px 16px;
+    linear-gradient(to right, rgba(10, 10, 10, var(--geist-line-a)) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(10, 10, 10, var(--geist-line-a)) 1px, transparent 1px),
+    radial-gradient(circle, var(--geist-dot-paint) var(--geist-dot-r), transparent var(--geist-dot-r));
+  background-size:
+    var(--geist-grid-major) var(--geist-grid-major),
+    var(--geist-grid-major) var(--geist-grid-major),
+    var(--geist-grid-dot) var(--geist-grid-dot);
+  background-position: 0 0, 0 0, 0 0;
+}
+
+/* Coarse field — saved packs / large-cell modules (tweak --geist-grid-major to rescale) */
+.geist-grid--field {
+  --geist-grid-bg: color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-raised));
+  --geist-grid-major: 64px;
+  /* Integer step — fractional repeats moiré when scrolling */
+  --geist-grid-dot: 20px;
+  --geist-line-a: 0.028;
+  --geist-dot-paint: rgba(165, 165, 165, 0.45);
+  --geist-dot-r: 0.5px;
+}
+
+/* Map diagram surface — mid-scale field (nodes sit on the grid; not as tight as marketing dense) */
+.geist-grid--map {
+  --geist-grid-bg: var(--color-surface-raised);
+  --geist-grid-major: 40px;
+  --geist-grid-dot: 12px;
+  --geist-line-a: 0.038;
+  --geist-dot-paint: rgba(163, 163, 163, 0.55);
+  --geist-dot-r: 0.45px;
+}
+
+/* Hairline + dotted frame helper */
+.ui-frame-dotted {
+  border: 1px dashed var(--color-rule-strong);
+  outline: 1px dotted color-mix(in srgb, var(--color-ink) 12%, transparent);
+  outline-offset: -1px;
+}
+
+/* Floating chrome (tabs) */
+.ui-chrome-floating {
+  border: 1px solid var(--color-rule);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+}
+
+/* Structural label (metrics / section IDs) */
+.struct-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
 }

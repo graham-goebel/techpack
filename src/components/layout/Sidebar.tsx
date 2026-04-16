@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Block, ModelRecommendation, ProjectConfig, ProjectFileResource, Tier } from '../../types';
 import { projectTypes } from '../../data/projectTypes';
 import { getTypeDetailFields } from '../../data/projectTypeDetailFields';
 import { blocks } from '../../data/blocks';
+import { groupVisibleBlocksByStackLayer } from '../../data/stackLayers';
 import { techOptions } from '../../data/techOptions';
 import { blockLibraries } from '../../data/libraries';
 import { modelsForToolAndTier, toolRecommendations } from '../../data/models';
@@ -11,12 +12,11 @@ import {
   getVisibleIntegrations,
   INTEGRATION_CATEGORY_LABELS,
   INTEGRATION_CATEGORY_ORDER,
-  skillsShUrl,
   type IntegrationCategory,
   type IntegrationItem,
 } from '../../data/integrations';
-import { CheckIcon } from '@primer/octicons-react';
 import { BlockOcticon } from '../icons/OcticonById';
+import { ToolLogoGlyph } from '../icons/ToolLogoGlyph';
 import { ComplexityDots } from '../ui/ComplexityDots';
 import { ResourcesPanel } from '../resources/ResourcesPanel';
 import { CustomSelect } from '../ui/CustomSelect';
@@ -32,6 +32,7 @@ interface SidebarProps {
   onSetDescription: (desc: string) => void;
   onSetTypeDetail: (fieldId: string, value: string) => void;
   onSetModel: (modelId: string) => void;
+  onSetBuildAsYouGo: (value: boolean) => void;
   onSetUseSubagents: (value: boolean) => void;
   onSetSubagentModel: (laneId: string, modelId: string) => void;
   onSetTool: (toolId: string | null) => void;
@@ -40,9 +41,258 @@ interface SidebarProps {
   onAddResourceUrl: (label: string, url: string) => void;
   onAddResourceFile: (file: Omit<ProjectFileResource, 'id' | 'kind'>) => void;
   onRemoveResource: (id: string) => void;
+  /** Logo control: hide the main panel so main content can use full width; rail stays visible */
+  onCollapseSidebar: () => void;
+  onExpandSidebar: () => void;
+  collapsed: boolean;
 }
 
 type SectionId = 'type' | 'project' | 'blocks' | 'resources' | 'integrations';
+
+/** Uppercase rail / field labels — single weight + scale in scroll column */
+const SIDEBAR_LABEL =
+  'text-[8px] font-semibold uppercase tracking-[0.1em] text-ink-secondary leading-snug';
+/** leading-snug avoids ascender clipping; min-w-0 + break-words so long labels wrap in narrow sidebar */
+const SIDEBAR_FIELD_LABEL = `block w-full min-w-0 break-words ${SIDEBAR_LABEL} mb-1`;
+/** Body + values in forms (matches CustomSelect md) */
+const SIDEBAR_BODY = 'text-sm text-ink leading-normal';
+
+function SidebarRailNav({
+  activeRail,
+  onNavigate,
+  showIntegrations,
+  onLogoClick,
+  logoAction,
+}: {
+  activeRail: SectionId;
+  onNavigate: (id: SectionId) => void;
+  showIntegrations: boolean;
+  onLogoClick: () => void;
+  logoAction: 'collapse' | 'expand';
+}) {
+  const Item = ({
+    id,
+    label,
+    children,
+  }: {
+    id: SectionId;
+    label: string;
+    children: ReactNode;
+  }) => {
+    const active = activeRail === id;
+    return (
+      <button
+        type="button"
+        aria-label={label}
+        aria-current={active ? 'true' : undefined}
+        onClick={() => onNavigate(id)}
+        className={`flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${
+          active
+            ? 'bg-ink text-surface'
+            : 'text-ink-muted hover:bg-black/[0.06] hover:text-ink'
+        }`}
+      >
+        {children}
+      </button>
+    );
+  };
+
+  return (
+    <nav
+      className="flex h-full min-h-0 w-[52px] shrink-0 flex-col items-center gap-0.5 self-stretch border-r border-rule bg-surface-raised py-2 pt-3"
+      aria-label="Sidebar sections"
+    >
+      <button
+        type="button"
+        onClick={onLogoClick}
+        className="mb-2 flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border border-dashed border-rule-strong bg-white text-[10px] font-mono font-bold tracking-tight text-ink shadow-[0_0_0_1px_rgba(10,10,10,0.04)] transition-opacity hover:opacity-90"
+        title={logoAction === 'collapse' ? 'Collapse sidebar' : 'Expand sidebar'}
+        aria-label={logoAction === 'collapse' ? 'Collapse sidebar' : 'Expand sidebar'}
+      >
+        TP
+      </button>
+      <Item id="type" label="Overview">
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+          />
+        </svg>
+      </Item>
+      <Item id="project" label="Project details">
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
+        </svg>
+      </Item>
+      <Item id="blocks" label="Blocks">
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+          />
+        </svg>
+      </Item>
+      <Item id="resources" label="Resources">
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+          />
+        </svg>
+      </Item>
+      {showIntegrations ? (
+        <Item id="integrations" label="Integrations">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 001 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"
+            />
+          </svg>
+        </Item>
+      ) : null}
+      <div className="flex-1 min-h-[12px]" aria-hidden />
+      <a
+        href="https://github.com/graham-goebel/techpack"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex h-10 w-10 items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-black/[0.05] hover:text-ink"
+        aria-label="Repository on GitHub"
+      >
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"
+          />
+        </svg>
+      </a>
+    </nav>
+  );
+}
+
+function SidebarPanelHeader({
+  label,
+  description,
+  count,
+}: {
+  label: string;
+  description?: string;
+  count?: number;
+}) {
+  return (
+    <div className="shrink-0 border-b border-rule px-3 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="m-0 text-[10px] font-semibold leading-snug tracking-tight text-ink">{label}</h2>
+        {count !== undefined ? (
+          <span className="text-[10px] font-medium tabular-nums text-ink-muted">{count}</span>
+        ) : null}
+      </div>
+      {description ? (
+        <p className="mt-1 text-[10px] leading-snug text-ink-muted">{description}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SidebarBlockGridCard({
+  block,
+  tier,
+  config,
+  variant,
+  isExpanded,
+  onToggleExpand,
+  onCornerAction,
+  cornerLabel,
+}: {
+  block: Block;
+  tier: Tier;
+  config: ProjectConfig;
+  variant: 'included' | 'recommended';
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onCornerAction: () => void;
+  cornerLabel: string;
+}) {
+  const isRequired = block.statusForTier(tier) === 'required';
+  const techForPreview =
+    techOptions.find((o) => o.id === config.techChoices[block.id]) ??
+    techOptions.find((o) => o.blockId === block.id && o.isDefault);
+  const summaryId = `sidebar-block-sum-${block.id}`;
+
+  return (
+    <div className="group/card relative min-w-0">
+      <span id={summaryId} className="sr-only">
+        {block.summary}
+      </span>
+      <div
+        className={`relative transition-colors ${
+          isExpanded
+            ? 'bg-surface-raised ring-1 ring-inset ring-ink/[0.12]'
+            : 'bg-white hover:bg-surface-raised/65'
+        } ${variant === 'recommended' && !isExpanded ? 'opacity-[0.72] hover:opacity-100' : ''}`}
+      >
+        {isRequired ? (
+          <span className="absolute right-1 top-1 z-[1] rounded-sm bg-accent-light px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
+            Req
+          </span>
+        ) : null}
+        {!isRequired ? (
+          <button
+            type="button"
+            onClick={onCornerAction}
+            className={`absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-sm border border-transparent text-ink-muted transition-colors hover:border-rule hover:bg-surface-raised hover:text-ink ${
+              variant === 'included' ? 'opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100' : ''
+            }`}
+            aria-label={cornerLabel}
+            title={cornerLabel}
+          >
+            {variant === 'included' ? (
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+              </svg>
+            )}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          aria-expanded={isExpanded}
+          aria-describedby={summaryId}
+          className="flex min-h-[72px] w-full flex-row items-center gap-3 px-3 py-2.5 pr-10 text-left"
+        >
+          <BlockOcticon blockId={block.id} size={20} className="shrink-0 text-ink-secondary" />
+          <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
+            <span className="line-clamp-2 text-[10px] font-semibold leading-tight text-ink">{block.name}</span>
+            {techForPreview ? (
+              <span className="line-clamp-1 w-full text-[10px] text-ink-faint">{techForPreview.name}</span>
+            ) : null}
+          </span>
+        </button>
+      </div>
+      {!isExpanded ? (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute left-0 right-0 top-full z-[240] mt-1.5 rounded-md border border-white/12 bg-ink px-2.5 py-2 text-left text-[10px] leading-snug text-surface/90 shadow-lg shadow-black/30 opacity-0 transition-all duration-150 translate-y-0.5 group-hover/card:visible group-hover/card:translate-y-0 group-hover/card:opacity-100 group-focus-within/card:visible group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 invisible scale-95 group-hover/card:scale-100 group-focus-within/card:scale-100"
+        >
+          <p className="mb-1 text-[10px] font-semibold text-surface">{block.name}</p>
+          <p className="text-surface/85">{block.summary}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function Sidebar({
   config,
@@ -54,6 +304,7 @@ export function Sidebar({
   onSetDescription,
   onSetTypeDetail,
   onSetModel,
+  onSetBuildAsYouGo,
   onSetUseSubagents,
   onSetSubagentModel,
   onSetTool,
@@ -62,15 +313,26 @@ export function Sidebar({
   onAddResourceUrl,
   onAddResourceFile,
   onRemoveResource,
+  onCollapseSidebar,
+  onExpandSidebar,
+  collapsed,
 }: SidebarProps) {
-  const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set());
+  /** Exactly one rail section visible at a time (no stacked accordion). */
+  const [activePanel, setActivePanel] = useState<SectionId>('type');
+
+  const handleRailNavigate = useCallback(
+    (id: SectionId) => {
+      if (collapsed) onExpandSidebar();
+      setActivePanel(id);
+    },
+    [collapsed, onExpandSidebar],
+  );
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
   const [projectTypeMenuOpen, setProjectTypeMenuOpen] = useState(false);
   const projectTypeMenuRef = useRef<HTMLDivElement>(null);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const toolMenuRef = useRef<HTMLDivElement>(null);
   const [integrationTab, setIntegrationTab] = useState<IntegrationCategory>('skill');
-  const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const selectedProjectType = useMemo(
     () => projectTypes.find((t) => t.id === config.projectTypeId),
@@ -97,8 +359,8 @@ export function Sidebar({
   }, [projectTypeMenuOpen]);
 
   useEffect(() => {
-    if (!openSections.has('type')) setProjectTypeMenuOpen(false);
-  }, [openSections]);
+    if (activePanel !== 'type') setProjectTypeMenuOpen(false);
+  }, [activePanel]);
 
   useEffect(() => {
     if (!toolMenuOpen) return;
@@ -120,22 +382,8 @@ export function Sidebar({
   }, [toolMenuOpen]);
 
   useEffect(() => {
-    if (!openSections.has('type')) setToolMenuOpen(false);
-  }, [openSections]);
-
-  const toggle = useCallback((id: SectionId) => {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      if (next.has(id)) {
-        requestAnimationFrame(() => {
-          sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
-      }
-      return next;
-    });
-  }, []);
+    if (activePanel !== 'type') setToolMenuOpen(false);
+  }, [activePanel]);
 
   const visibleBlocks = config.projectTypeId
     ? blocks
@@ -204,19 +452,136 @@ export function Sidebar({
     });
   }, [visibleIntegrations]);
 
+  const [sidebarSearch, setSidebarSearch] = useState('');
+
+  useEffect(() => {
+    if (sidebarSearch.trim()) {
+      setActivePanel('blocks');
+    }
+  }, [sidebarSearch]);
+
+  useEffect(() => {
+    if (visibleIntegrations.length === 0 && activePanel === 'integrations') {
+      setActivePanel('type');
+    }
+  }, [visibleIntegrations.length, activePanel]);
+
+  const blockMatches = useCallback(
+    (b: Block) => {
+      const q = sidebarSearch.trim().toLowerCase();
+      if (!q) return true;
+      return b.name.toLowerCase().includes(q) || b.summary.toLowerCase().includes(q);
+    },
+    [sidebarSearch],
+  );
+
+  const includedGrouped = useMemo(
+    () => groupVisibleBlocksByStackLayer(includedBlocks.filter(blockMatches)),
+    [includedBlocks, blockMatches],
+  );
+
+  const recommendedFiltered = useMemo(
+    () => recommendedBlocks.filter(blockMatches),
+    [recommendedBlocks, blockMatches],
+  );
+
+  const recommendedGrouped = useMemo(
+    () => groupVisibleBlocksByStackLayer(recommendedFiltered),
+    [recommendedFiltered],
+  );
+
+  const renderExpandedBlockPanel = (block: Block): ReactNode => {
+    if (expandedBlockId !== block.id) {
+      return null;
+    }
+    const isInProject = includedBlocks.some((b) => b.id === block.id);
+    return (
+      <div className="overflow-hidden bg-surface-raised/90">
+        <div className="flex items-center justify-between gap-2 border-b border-rule px-3 py-2">
+          <span className="min-w-0 truncate text-[10px] font-semibold text-ink">{block.name}</span>
+          <button
+            type="button"
+            onClick={() => setExpandedBlockId(null)}
+            className="shrink-0 rounded-lg p-1 text-ink-muted transition-colors hover:bg-white hover:text-ink"
+            aria-label="Close block details"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+              <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        {isInProject ? (
+          <IncludedBlockExpandedPanel
+            block={block}
+            config={config}
+            models={models}
+            primaryModelMeta={primaryModelMeta}
+            onSetTechChoice={onSetTechChoice}
+            onToggleLibrary={onToggleLibrary}
+            onSetSubagentModel={onSetSubagentModel}
+          />
+        ) : (
+          <>
+            <div className="space-y-2 border-b border-rule px-2.5 py-2.5">
+              <p className="text-[10px] leading-relaxed text-ink-secondary">{block.explanation}</p>
+              <div>
+                <p className={`mb-0.5 ${SIDEBAR_LABEL}`}>Why</p>
+                <p className="text-[10px] leading-relaxed text-ink-secondary">{block.whyNeeded}</p>
+              </div>
+            </div>
+            {config.useSubagents ? (
+              <BlockSubagentModelRow
+                lane={getSubagentLaneForBlock(block.id)}
+                blockId={block.id}
+                config={config}
+                models={models}
+                primaryModelMeta={primaryModelMeta}
+                onSetSubagentModel={onSetSubagentModel}
+              />
+            ) : null}
+            <div className="px-2.5 pb-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => onToggleBlock(block.id)}
+                className="flex w-full items-center justify-center gap-1.5 border border-rule py-1.5 text-[10px] font-bold uppercase tracking-wider text-ink transition-colors hover:border-accent hover:text-accent"
+              >
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                </svg>
+                Add to project
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <aside className="relative w-[304px] shrink-0 border-r border-rule bg-surface flex flex-col h-screen overflow-hidden">
+    <aside className="relative flex h-screen w-full min-w-0 shrink-0 overflow-hidden border-r border-rule bg-surface">
+      <SidebarRailNav
+        activeRail={activePanel}
+        onNavigate={handleRailNavigate}
+        showIntegrations={visibleIntegrations.length > 0}
+        onLogoClick={collapsed ? onExpandSidebar : onCollapseSidebar}
+        logoAction={collapsed ? 'expand' : 'collapse'}
+      />
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l border-zinc-200/80 bg-surface ${
+          collapsed ? 'hidden' : ''
+        }`}
+      >
       {/* Masthead — same height + border as main chrome row */}
-      <div className="app-chrome-row shrink-0 flex flex-col justify-center px-5 border-b border-rule-strong min-w-0">
+      <div className="app-chrome-row shrink-0 flex flex-col justify-center border-b border-rule-strong min-w-0 px-4">
         <div
-          className="text-[22px] font-semibold text-ink leading-none tracking-tight truncate min-w-0"
+          className="text-[17px] font-semibold text-ink leading-tight tracking-[-0.02em] truncate min-w-0"
           title={config.name.trim() || undefined}
         >
           {config.name.trim() || 'Untitled'}
         </div>
-        <div className="mt-1.5 min-w-0">
+        <div className="mt-1 min-w-0">
           {selectedProjectType ? (
-            <div className="min-w-0 flex items-center gap-2 flex-wrap text-[10px] text-ink-muted uppercase tracking-wider leading-snug">
+            <div className="min-w-0 flex items-center gap-2 flex-wrap text-[10px] text-ink-muted uppercase tracking-[0.06em] leading-snug">
               <span className="font-semibold text-ink-secondary">{selectedProjectType.name}</span>
               <span className="text-rule shrink-0">|</span>
               <span className="shrink-0 tabular-nums">
@@ -233,53 +598,50 @@ export function Sidebar({
               )}
             </div>
           ) : (
-            <span className="text-[11px] font-medium text-ink-muted uppercase tracking-[0.15em] leading-snug min-w-0 truncate block">
+            <span className="text-[10px] font-medium text-ink-muted uppercase tracking-[0.15em] leading-snug min-w-0 truncate block">
               Tech Pack
             </span>
           )}
         </div>
       </div>
 
-      {/* Scrollable sections — min-h-full + trailing flex spacer keeps blocks top-aligned and fills viewport */}
-      <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-24">
-          <div className="flex min-h-full flex-col">
-        {/* ── OVERVIEW ────────────────────────────── */}
-        <SectionHeader
-          label="Overview"
-          open={openSections.has('type')}
-          onToggle={() => toggle('type')}
-          sectionRef={(el) => { sectionRefs.current.type = el; }}
-          suppressTopBorder
-        />
-        {openSections.has('type') && (
-          <div className="px-3 pb-3 animate-fade-in">
+      {/* Single scroll column — one rail panel at a time */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-24">
+          <div className="flex min-w-0 flex-col">
+        {activePanel === 'type' && (
+          <div className="animate-fade-in">
+            <SidebarPanelHeader label="Overview" />
+            <div className="px-3 pb-4 pt-1">
+            <p id="sidebar-project-type-label" className={SIDEBAR_FIELD_LABEL}>
+              Project type
+            </p>
             <div className="relative" ref={projectTypeMenuRef}>
               <button
                 type="button"
                 onClick={() => setProjectTypeMenuOpen((o) => !o)}
                 aria-expanded={projectTypeMenuOpen}
                 aria-haspopup="listbox"
-                aria-label="Project type"
+                aria-labelledby="sidebar-project-type-label"
                 className="w-full flex items-start gap-2 px-3 py-2.5 text-left border border-rule/40 rounded-lg bg-white/35 hover:bg-white/50 backdrop-blur-sm transition-colors"
               >
                 <div className="min-w-0 flex-1 w-full">
                   {selectedProjectType ? (
                     <>
                       <div className="flex items-center justify-between gap-2 min-w-0 w-full">
-                        <span className="text-[13px] font-semibold text-ink leading-tight truncate min-w-0">
+                        <span className="text-[10px] font-semibold text-ink leading-tight truncate min-w-0">
                           {selectedProjectType.name}
                         </span>
                         <span aria-hidden className="shrink-0">
                           <ComplexityDots filled={selectedProjectType.tier} size="pill" />
                         </span>
                       </div>
-                      <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
+                      <p className="text-[10px] text-ink-muted leading-snug mt-1 line-clamp-2">
                         {selectedProjectType.tagline}
                       </p>
                     </>
                   ) : (
-                    <span className="text-[12px] font-semibold text-ink-faint">
+                    <span className="text-[10px] font-semibold text-ink-faint">
                       Select project type…
                     </span>
                   )}
@@ -321,42 +683,26 @@ export function Sidebar({
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2 min-w-0 w-full">
-                          <span className={`text-[13px] font-semibold leading-tight truncate min-w-0 ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
+                          <span className={`text-[10px] font-semibold leading-tight truncate min-w-0 ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
                             {type.name}
                           </span>
                           <span aria-hidden className="shrink-0">
                             <ComplexityDots filled={type.tier} size="pill" />
                           </span>
                         </div>
-                        <p className="text-[11px] text-ink-muted leading-snug mt-1 pl-0">
+                        <p className="text-[10px] text-ink-muted leading-snug mt-1 pl-0">
                           {type.tagline}
                         </p>
                       </button>
                     );
                   })}
-                  {config.projectTypeId && (
-                    <div className="border-t border-rule px-2 py-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onSetProjectType('');
-                          setProjectTypeMenuOpen(false);
-                        }}
-                        className="w-full text-center py-1.5 text-[9px] font-bold uppercase tracking-wider text-ink-faint hover:text-accent transition-colors"
-                      >
-                        Clear selection
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
 
             {config.projectTypeId && (
               <div className="mt-3 pt-3 border-t border-rule space-y-3">
-                <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] px-0.5">
-                  AI & tooling
-                </p>
+                <p className={`${SIDEBAR_LABEL} px-0.5`}>AI & tooling</p>
                 {/* Tool dropdown — above model list */}
                 <div className="relative" ref={toolMenuRef}>
                   <button
@@ -371,16 +717,17 @@ export function Sidebar({
                       {selectedTool ? (
                         <>
                           <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-semibold text-ink leading-tight truncate">
+                            <ToolLogoGlyph toolId={selectedTool.id} className="h-5 w-5 shrink-0 text-ink" />
+                            <span className="text-[10px] font-semibold text-ink leading-tight truncate">
                               {selectedTool.name}
                             </span>
                           </div>
-                          <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
+                          <p className="text-[10px] text-ink-muted leading-snug mt-1 line-clamp-2">
                             {selectedTool.description}
                           </p>
                         </>
                       ) : (
-                        <span className="text-[12px] font-semibold text-ink-faint">
+                        <span className="text-[10px] font-semibold text-ink-faint">
                           Select tool…
                         </span>
                       )}
@@ -422,7 +769,8 @@ export function Sidebar({
                             }`}
                           >
                             <div className="flex items-center gap-2">
-                              <span className={`text-[13px] font-semibold leading-tight flex-1 truncate ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
+                              <ToolLogoGlyph toolId={t.id} className="h-5 w-5 shrink-0 text-ink" />
+                              <span className={`text-[10px] font-semibold leading-tight flex-1 truncate ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
                                 {t.name}
                               </span>
                               {t.url && (
@@ -431,159 +779,167 @@ export function Sidebar({
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={(e) => e.stopPropagation()}
-                                  className="text-[9px] text-accent hover:underline shrink-0"
+                                  className="text-[10px] text-accent hover:underline shrink-0"
                                 >
                                   ↗
                                 </a>
                               )}
                             </div>
-                            <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
+                            <p className="text-[10px] text-ink-muted leading-snug mt-1 line-clamp-2">
                               {t.reasoning}
                             </p>
                           </button>
                         );
                       })}
-                      {selectedToolId && (
-                        <div className="border-t border-rule px-2 py-1.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onSetTool(null);
-                              setToolMenuOpen(false);
-                            }}
-                            className="w-full text-center py-1.5 text-[9px] font-bold uppercase tracking-wider text-ink-faint hover:text-accent transition-colors"
-                          >
-                            Clear selection
-                          </button>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
 
-                {/* Model — custom dropdown, options depend on tool */}
-                <div className="border border-rule rounded-lg overflow-visible bg-surface">
-                  <div className="px-3 py-1.5 bg-surface-raised border-b border-rule">
-                    <label
-                      htmlFor="sidebar-primary-model"
-                      className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em]"
-                    >
-                      Model
-                    </label>
-                  </div>
-                  <div className="p-2">
-                    {models.length === 0 ? (
-                      <p className="px-1 py-2 text-[9px] text-ink-faint leading-snug">
-                        Choose a tool to see compatible models.
-                      </p>
-                    ) : (
-                      <CustomSelect
-                        id="sidebar-primary-model"
-                        value={config.selectedModelId}
-                        onChange={onSetModel}
-                        options={models.map((m) => ({
-                          value: m.id,
-                          label: `${m.name} (${m.provider})`,
-                          description: m.reasoning,
-                        }))}
-                        size="md"
-                        placeholder="Select model…"
-                        listClassName="max-h-[min(22rem,55vh)]"
-                        aria-label="Primary AI model"
-                      />
-                    )}
-                  </div>
+                {/* Model — custom dropdown; same full-width field treatment as tool selector */}
+                <div className="w-full min-w-0">
+                  <p id="sidebar-primary-model-label" className={SIDEBAR_FIELD_LABEL}>
+                    Model
+                  </p>
+                  {models.length === 0 ? (
+                    <p className="mt-1 text-[10px] text-ink-faint leading-snug">
+                      Choose a tool to see compatible models.
+                    </p>
+                  ) : (
+                    <CustomSelect
+                      id="sidebar-primary-model"
+                      value={config.selectedModelId}
+                      onChange={onSetModel}
+                      options={models.map((m) => ({
+                        value: m.id,
+                        label: `${m.name} (${m.provider})`,
+                        description: m.reasoning,
+                      }))}
+                      size="md"
+                      variant="sidebar"
+                      placeholder="Select model…"
+                      listClassName="max-h-[min(22rem,55vh)]"
+                      aria-labelledby="sidebar-primary-model-label"
+                      className="mt-1"
+                      triggerClassName="!border-rule/40 !bg-white/35 backdrop-blur-sm hover:!bg-white/50 rounded-lg"
+                    />
+                  )}
                 </div>
 
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-rule bg-surface px-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-ink-muted">
-                      Use subagents
-                    </p>
-                    <p className="mt-0.5 text-[9px] text-ink-muted leading-snug">
-                      Per-block lane models, stack chips, and prompt routing. Off = primary model only.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={config.useSubagents}
-                    onClick={() => onSetUseSubagents(!config.useSubagents)}
-                    className={`relative h-7 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-                      config.useSubagents
-                        ? 'border-ink bg-ink'
-                        : 'border-rule bg-surface-raised'
-                    }`}
-                  >
-                    <span className="sr-only">
-                      {config.useSubagents ? 'Subagents on' : 'Subagents off'}
-                    </span>
-                    <span
-                      className={`absolute top-1 left-1 block h-5 w-5 rounded-full bg-surface shadow-sm transition-transform duration-200 ease-out ${
-                        config.useSubagents ? 'translate-x-4' : 'translate-x-0'
+                <div className="overflow-hidden rounded-lg border border-rule bg-surface divide-y divide-rule">
+                  <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className={SIDEBAR_LABEL}>Use subagents</p>
+                      <p className="mt-0.5 text-[10px] font-normal text-ink-muted leading-snug">
+                        Per-block lane models, stack chips, and prompt routing. Off = primary model only.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={config.useSubagents}
+                      onClick={() => onSetUseSubagents(!config.useSubagents)}
+                      className={`relative h-7 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                        config.useSubagents
+                          ? 'border-ink bg-ink'
+                          : 'border-rule bg-surface-raised'
                       }`}
-                      aria-hidden
-                    />
-                  </button>
+                    >
+                      <span className="sr-only">
+                        {config.useSubagents ? 'Subagents on' : 'Subagents off'}
+                      </span>
+                      <span
+                        className={`absolute top-1 left-1 block h-5 w-5 rounded-full bg-surface shadow-sm transition-transform duration-200 ease-out ${
+                          config.useSubagents ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                        aria-hidden
+                      />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className={SIDEBAR_LABEL}>Build as you go</p>
+                      <p className="mt-0.5 text-[10px] font-normal text-ink-muted leading-snug">
+                        Focus on the product concept; let the agent propose and refine stack choices as you iterate. Off
+                        = lock picks in the UI before generating prompts.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={config.buildAsYouGo}
+                      onClick={() => onSetBuildAsYouGo(!config.buildAsYouGo)}
+                      className={`relative h-7 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                        config.buildAsYouGo ? 'border-ink bg-ink' : 'border-rule bg-surface-raised'
+                      }`}
+                    >
+                      <span className="sr-only">
+                        {config.buildAsYouGo ? 'Build as you go on' : 'Build as you go off'}
+                      </span>
+                      <span
+                        className={`absolute top-1 left-1 block h-5 w-5 rounded-full bg-surface shadow-sm transition-transform duration-200 ease-out ${
+                          config.buildAsYouGo ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                        aria-hidden
+                      />
+                    </button>
+                  </div>
                 </div>
 
                 {config.useSubagents ? (
-                  <p className="text-[9px] text-ink-muted leading-snug px-0.5">
-                    Subagent models for focused sessions are set per block — expand a block below and pick a model
-                    for its lane (or use primary).
+                  <p className="text-[10px] text-ink-muted leading-snug px-0.5">
+                    Subagent models for focused sessions are set per block — open the Blocks tab, expand a block,
+                    and pick a model for its lane (or use primary).
                   </p>
                 ) : null}
               </div>
             )}
           </div>
+          </div>
         )}
 
-        {/* ── DETAILS ─────────────────────────────── */}
-        {config.projectTypeId && (
-          <>
-            <SectionHeader
-              label="Details"
-              open={openSections.has('project')}
-              onToggle={() => toggle('project')}
-              sectionRef={(el) => { sectionRefs.current.project = el; }}
-            />
-            {openSections.has('project') && (
-              <div className="px-3 pb-3 animate-fade-in">
-                <div className="border border-rule border-b-0 bg-surface">
-                  <div className="px-3 py-2.5 border-b border-rule">
-                    <label className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">Name</label>
+        {activePanel === 'project' && config.projectTypeId && (
+          <div className="animate-fade-in min-w-0">
+            <SidebarPanelHeader label="Details" />
+            <div className="min-w-0">
+                <div className="min-w-0 w-full overflow-visible border border-rule border-b-0 bg-surface">
+                  <div className="min-w-0 px-3 py-2.5 border-b border-rule">
+                    <label htmlFor="sidebar-project-name" className={SIDEBAR_FIELD_LABEL}>
+                      Name
+                    </label>
                     <input
+                      id="sidebar-project-name"
                       type="text"
                       value={config.name}
                       onChange={(e) => onSetName(e.target.value)}
                       placeholder="Untitled"
-                      className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                      className={`w-full bg-transparent ${SIDEBAR_BODY} placeholder:text-ink-faint focus:outline-none`}
                     />
                   </div>
                   <div
-                    className={`px-3 py-2.5 ${
+                    className={`min-w-0 px-3 py-2.5 ${
                       typeDetailFields.length > 0 ? 'border-b border-rule' : ''
                     }`}
                   >
-                    <label className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">Description</label>
+                    <label htmlFor="sidebar-project-desc" className={SIDEBAR_FIELD_LABEL}>
+                      Description
+                    </label>
                     <textarea
+                      id="sidebar-project-desc"
                       value={config.projectDescription}
                       onChange={(e) => onSetDescription(e.target.value)}
                       placeholder="What does it do?"
                       rows={2}
-                      className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none resize-none"
+                      className={`w-full bg-transparent ${SIDEBAR_BODY} placeholder:text-ink-faint focus:outline-none resize-none`}
                     />
                   </div>
                   {typeDetailFields.map((field, idx) => (
                     <div
                       key={field.id}
-                      className={`px-3 py-2.5 ${
+                      className={`min-w-0 px-3 py-2.5 ${
                         idx < typeDetailFields.length - 1 ? 'border-b border-rule' : ''
                       }`}
                     >
-                      <div className="block text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-1">
-                        {field.label}
-                      </div>
+                      <div className={SIDEBAR_FIELD_LABEL}>{field.label}</div>
                       {field.input === 'chips' && field.options ? (
                         <div
                           className="flex flex-wrap gap-1.5 pt-0.5"
@@ -631,7 +987,7 @@ export function Sidebar({
                           onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
                           placeholder={field.placeholder}
                           rows={field.rows ?? 2}
-                          className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none resize-none"
+                          className={`w-full bg-transparent ${SIDEBAR_BODY} placeholder:text-ink-faint focus:outline-none resize-none`}
                         />
                       ) : (
                         <input
@@ -639,291 +995,154 @@ export function Sidebar({
                           value={typeDetails[field.id] ?? ''}
                           onChange={(e) => onSetTypeDetail(field.id, e.target.value)}
                           placeholder={field.placeholder}
-                          className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                          className={`w-full bg-transparent ${SIDEBAR_BODY} placeholder:text-ink-faint focus:outline-none`}
                         />
                       )}
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-          </>
+          </div>
         )}
 
-        {/* ── BLOCKS ──────────────────────────────── */}
-        {config.projectTypeId && (
-          <>
-            <SectionHeader
-              label="Blocks"
-              count={config.selectedBlockIds.length}
-              open={openSections.has('blocks')}
-              onToggle={() => toggle('blocks')}
-              sectionRef={(el) => { sectionRefs.current.blocks = el; }}
-            />
-            {openSections.has('blocks') && (
-              <div className="px-3 pb-3 animate-fade-in space-y-3">
-                {/* Included blocks (required + user-added) */}
-                {includedBlocks.length > 0 && (
-                  <div className="flex flex-col gap-px bg-rule border border-rule">
-                    {includedBlocks.map((block) => {
-                      const status = block.statusForTier(tier);
-                      const isRequired = status === 'required';
-                      const isExpanded = expandedBlockId === block.id;
-                      const techForPreview =
-                        techOptions.find((o) => o.id === config.techChoices[block.id]) ??
-                        techOptions.find((o) => o.blockId === block.id && o.isDefault);
-                      const tileDescId = `block-desc-${block.id}`;
-                      return (
-                        <div key={block.id} className="flex flex-col gap-px min-w-0 w-full">
-                          <div className="group relative bg-surface flex flex-col min-w-0 w-full">
-                            <span id={tileDescId} className="sr-only">
-                              {block.summary}
-                            </span>
-                            <div className="w-full">
-                              <button
-                                type="button"
-                                onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
-                                aria-describedby={tileDescId}
-                                className="w-full min-h-[60px] text-left px-3 py-3 pr-11 hover:bg-surface-raised transition-colors flex items-center gap-2.5 relative"
-                              >
-                                {!isRequired && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onToggleBlock(block.id);
-                                    }}
-                                    className="absolute top-1/2 right-2.5 z-10 flex h-4 w-4 -translate-y-1/2 items-center justify-center text-ink-faint opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto hover:text-accent"
-                                    aria-label="Remove from project"
-                                    title="Remove"
-                                  >
-                                    <svg className="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                                      <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                )}
-                                <span
-                                  className={`pointer-events-none absolute right-2.5 top-1/2 z-[1] -translate-y-1/2 text-accent transition-opacity duration-150 ${
-                                    isRequired ? '' : 'opacity-100 group-hover:opacity-0 group-focus-within:opacity-0'
-                                  }`}
-                                  aria-hidden
-                                >
-                                  <CheckIcon size={14} />
-                                </span>
-                                <span className="shrink-0 text-ink-muted flex items-center justify-center" aria-hidden>
-                                  <BlockOcticon blockId={block.id} size={18} />
-                                </span>
-                                <div className="flex flex-col gap-0.5 min-w-0 flex-1 text-left">
-                                  <div className="text-[12px] font-semibold text-ink leading-snug line-clamp-2 w-full pr-1">
-                                    {block.name}
-                                  </div>
-                                  {techForPreview ? (
-                                    <div className="text-[11px] text-ink-muted leading-snug line-clamp-2 w-full pr-1">
-                                      {techForPreview.name}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </button>
-                            </div>
-                            {!isExpanded && (
-                              <div
-                                role="tooltip"
-                                className="pointer-events-none absolute z-[230] left-3 translate-x-0 bottom-[calc(100%+6px)] w-max max-w-[min(17rem,calc(304px-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
-                              >
-                                {block.summary}
-                              </div>
-                            )}
-                          </div>
-                          {isExpanded && (
-                            <div className="min-w-0 w-full flex flex-col">
-                              <IncludedBlockExpandedPanel
-                                block={block}
-                                config={config}
-                                models={models}
-                                primaryModelMeta={primaryModelMeta}
-                                onSetTechChoice={onSetTechChoice}
-                                onToggleLibrary={onToggleLibrary}
-                                onSetSubagentModel={onSetSubagentModel}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+        {/* ── BLOCKS (Weave-style grid + detail drawer) ── */}
+        {activePanel === 'blocks' && config.projectTypeId && (
+          <div className="animate-fade-in flex min-w-0 flex-col">
+            <SidebarPanelHeader label="Blocks" count={config.selectedBlockIds.length} />
+            <div className="shrink-0 border-b border-rule">
+              <label htmlFor="sidebar-search" className="sr-only">
+                Search blocks
+              </label>
+              <div className="relative">
+                <svg
+                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  id="sidebar-search"
+                  type="search"
+                  value={sidebarSearch}
+                  onChange={(e) => setSidebarSearch(e.target.value)}
+                  placeholder="Search blocks…"
+                  className="w-full border-0 bg-transparent py-2.5 pl-9 pr-3 text-[10px] text-ink shadow-none placeholder:text-ink-faint focus:outline-none focus:ring-0 focus:bg-black/[0.03]"
+                />
+              </div>
+            </div>
+            <div className="space-y-4 pb-3 pt-2">
+                {sidebarSearch.trim() &&
+                includedGrouped.length === 0 &&
+                recommendedFiltered.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-[10px] text-ink-faint">
+                    No blocks match &ldquo;{sidebarSearch.trim()}&rdquo;.
+                  </p>
+                ) : null}
+
+                {includedGrouped.map((group) =>
+                  group.blocks.length === 0 ? null : (
+                    <div key={group.layerId}>
+                      <p className={`mb-2 px-3 ${SIDEBAR_LABEL}`}>{group.label}</p>
+                      <div className="rounded-lg border border-rule bg-white divide-y divide-rule">
+                        {group.blocks.map((block) => (
+                          <Fragment key={block.id}>
+                            <SidebarBlockGridCard
+                              block={block}
+                              tier={tier}
+                              config={config}
+                              variant="included"
+                              isExpanded={expandedBlockId === block.id}
+                              onToggleExpand={() =>
+                                setExpandedBlockId(expandedBlockId === block.id ? null : block.id)
+                              }
+                              onCornerAction={() => onToggleBlock(block.id)}
+                              cornerLabel="Remove from project"
+                            />
+                            {renderExpandedBlockPanel(block)}
+                          </Fragment>
+                        ))}
+                      </div>
+                    </div>
+                  ),
                 )}
 
-                {/* Recommended / optional blocks not yet added */}
-                {recommendedBlocks.length > 0 && (
+                {recommendedFiltered.length > 0 ? (
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.15em]">
-                        Recommended
-                      </p>
+                    <div className="mb-2 flex items-center justify-between gap-2 px-3">
+                      <p className={SIDEBAR_LABEL}>Recommended</p>
                       <button
                         type="button"
-                        onClick={() => recommendedBlocks.forEach((b) => onToggleBlock(b.id))}
-                        className="text-[8px] font-bold text-ink-faint uppercase tracking-wider hover:text-accent transition-colors"
+                        onClick={() => recommendedFiltered.forEach((b) => onToggleBlock(b.id))}
+                        className="text-[10px] font-bold uppercase tracking-wider text-ink-faint transition-colors hover:text-accent"
                       >
                         Add all
                       </button>
                     </div>
-                    <div className="flex flex-col gap-px bg-rule border border-rule">
-                      {recommendedBlocks.map((block) => {
-                        const isExpanded = expandedBlockId === block.id;
-                        const techForPreview =
-                          techOptions.find((o) => o.id === config.techChoices[block.id]) ??
-                          techOptions.find((o) => o.blockId === block.id && o.isDefault);
-                        const tileDescId = `block-desc-rec-${block.id}`;
-                        return (
-                          <div key={block.id} className="flex flex-col gap-px min-w-0 w-full">
-                            <div
-                              className={`group relative bg-surface flex flex-col min-w-0 w-full transition-opacity ${
-                                isExpanded ? 'opacity-100' : 'opacity-60 hover:opacity-100'
-                              }`}
-                            >
-                              <span id={tileDescId} className="sr-only">
-                                {block.summary}
-                              </span>
-                              <div className="w-full">
-                                <button
-                                  type="button"
-                                  onClick={() => setExpandedBlockId(isExpanded ? null : block.id)}
-                                  aria-describedby={tileDescId}
-                                  className="w-full min-h-[60px] text-left px-3 py-3 pr-10 hover:bg-surface-raised transition-colors flex items-center gap-2.5 relative"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onToggleBlock(block.id);
-                                    }}
-                                    className="absolute top-1/2 right-2.5 -translate-y-1/2 h-4 w-4 flex items-center justify-center text-ink-faint hover:text-ink transition-colors z-10"
-                                    aria-label={`Add ${block.name} to project`}
-                                    title="Add to project"
-                                  >
-                                    <svg className="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                                      <path strokeLinecap="round" d="M12 5v14M5 12h14" />
-                                    </svg>
-                                  </button>
-                                  <span className="shrink-0 text-ink-muted flex items-center justify-center" aria-hidden>
-                                    <BlockOcticon blockId={block.id} size={18} />
-                                  </span>
-                                  <div className="flex flex-col gap-0.5 min-w-0 flex-1 text-left">
-                                    <div className="text-[12px] font-semibold text-ink leading-snug line-clamp-2 w-full pr-1">
-                                      {block.name}
-                                    </div>
-                                    {techForPreview ? (
-                                      <div className="text-[11px] text-ink-muted leading-snug line-clamp-2 w-full pr-1">
-                                        {techForPreview.name}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                </button>
-                              </div>
-                              {!isExpanded && (
-                                <div
-                                  role="tooltip"
-                                  className="pointer-events-none absolute z-[230] left-3 translate-x-0 bottom-[calc(100%+6px)] w-max max-w-[min(17rem,calc(304px-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
-                                >
-                                  {block.summary}
-                                </div>
-                              )}
-                            </div>
-                            {isExpanded && (
-                              <div className="min-w-0 w-full border-t border-rule bg-surface-raised animate-fade-in">
-                                <div className="px-2.5 py-2.5 space-y-2">
-                                  <p className="text-[10px] text-ink-secondary leading-relaxed">{block.explanation}</p>
-                                  <div>
-                                    <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-0.5">Why</p>
-                                    <p className="text-[10px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
-                                  </div>
-                                </div>
-                                {config.useSubagents ? (
-                                  <BlockSubagentModelRow
-                                    lane={getSubagentLaneForBlock(block.id)}
-                                    blockId={block.id}
+                    <div className="space-y-4">
+                      {recommendedGrouped.map((group) =>
+                        group.blocks.length === 0 ? null : (
+                          <div key={`rec-${group.layerId}`}>
+                            <p className={`mb-2 px-3 ${SIDEBAR_LABEL}`}>{group.label}</p>
+                            <div className="rounded-lg border border-rule bg-white divide-y divide-rule">
+                              {group.blocks.map((block) => (
+                                <Fragment key={block.id}>
+                                  <SidebarBlockGridCard
+                                    block={block}
+                                    tier={tier}
                                     config={config}
-                                    models={models}
-                                    primaryModelMeta={primaryModelMeta}
-                                    onSetSubagentModel={onSetSubagentModel}
+                                    variant="recommended"
+                                    isExpanded={expandedBlockId === block.id}
+                                    onToggleExpand={() =>
+                                      setExpandedBlockId(expandedBlockId === block.id ? null : block.id)
+                                    }
+                                    onCornerAction={() => onToggleBlock(block.id)}
+                                    cornerLabel={`Add ${block.name} to project`}
                                   />
-                                ) : null}
-                                <div className="px-2.5 pb-2.5 pt-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => onToggleBlock(block.id)}
-                                    className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-ink hover:text-accent border border-rule hover:border-accent transition-colors"
-                                  >
-                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                                      <path strokeLinecap="round" d="M12 5v14M5 12h14" />
-                                    </svg>
-                                    Add to project
-                                  </button>
-                                </div>
-                              </div>
-                            )}
+                                  {renderExpandedBlockPanel(block)}
+                                </Fragment>
+                              ))}
+                            </div>
                           </div>
-                        );
-                      })}
+                        ),
+                      )}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
-            )}
-          </>
+            </div>
         )}
 
         {/* Tech Stack section removed — tech choices are inline in each block's expanded view */}
 
-        {/* ── RESOURCES ─────────────────────────────── */}
-        {config.projectTypeId && (
-          <>
-            <SectionHeader
+        {activePanel === 'resources' && config.projectTypeId && (
+          <div className="animate-fade-in flex min-w-0 flex-col">
+            <SidebarPanelHeader
               label="Resources"
               description="Add links or small files—specs, mockups, or references—so this tech pack stays grounded in your real artifacts."
               count={(config.resources ?? []).length}
-              open={openSections.has('resources')}
-              onToggle={() => toggle('resources')}
-              sectionRef={(el) => { sectionRefs.current.resources = el; }}
             />
-            {openSections.has('resources') && (
-              <div className="px-3 pb-3 animate-fade-in min-w-0 max-w-full flex-1 min-h-0 flex flex-col">
-                <ResourcesPanel
-                  variant="sidebar"
-                  resources={config.resources ?? []}
-                  onAddUrl={onAddResourceUrl}
-                  onAddFile={onAddResourceFile}
-                  onRemove={onRemoveResource}
-                />
-              </div>
-            )}
-          </>
+            <div className="min-w-0 max-w-full px-3 pb-4 pt-2">
+              <ResourcesPanel
+                variant="sidebar"
+                resources={config.resources ?? []}
+                onAddUrl={onAddResourceUrl}
+                onAddFile={onAddResourceFile}
+                onRemove={onRemoveResource}
+              />
+            </div>
+          </div>
         )}
 
-        {/* ── INTEGRATIONS ─────────────────────────── */}
-        {config.projectTypeId && visibleIntegrations.length > 0 && (
-          <>
-            <SectionHeader
-              label="Integrations"
-              count={config.selectedIntegrationIds.length}
-              open={openSections.has('integrations')}
-              onToggle={() => toggle('integrations')}
-              sectionRef={(el) => { sectionRefs.current.integrations = el; }}
-            />
-            {openSections.has('integrations') && (
-              <div className="px-3 pb-3 space-y-2 animate-fade-in">
-                <p className="text-[9px] text-ink-muted leading-snug px-0.5">
-                  Suggested for your project type and description. Skills link to the{' '}
-                  <a
-                    href="https://skills.sh"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent hover:underline font-semibold"
-                  >
-                    skills.sh
-                  </a>{' '}
-                  directory.
+        {activePanel === 'integrations' && config.projectTypeId && visibleIntegrations.length > 0 && (
+              <div className="animate-fade-in flex min-w-0 flex-col">
+                <SidebarPanelHeader label="Integrations" count={config.selectedIntegrationIds.length} />
+                <div className="space-y-2 px-3 pb-4 pt-2">
+                <p className="text-[10px] font-normal text-ink-muted leading-snug px-0.5">
+                  Suggested for your project type and description. Skills align with the skills.sh ecosystem.
                 </p>
                 <div className="border border-rule bg-surface overflow-hidden">
                   <div
@@ -947,16 +1166,16 @@ export function Sidebar({
                           id={`integration-tab-${cat}`}
                           aria-controls={`integration-panel-${cat}`}
                           onClick={() => setIntegrationTab(cat)}
-                          className={`flex-1 min-w-0 px-1.5 py-2 text-[8px] font-bold uppercase tracking-[0.08em] transition-colors border-b-2 -mb-px ${
+                          className={`flex-1 min-w-0 px-2 py-1 text-[6px] font-medium uppercase tracking-[0.04em] leading-none transition-colors border-b -mb-px ${
                             isActive
                               ? 'text-ink border-ink bg-surface'
                               : 'text-ink-muted border-transparent hover:text-ink-secondary hover:bg-surface/80'
                           }`}
                         >
-                          <span className="block truncate text-center leading-tight">
+                          <span className="block truncate text-center font-sans">
                             {INTEGRATION_CATEGORY_LABELS[cat]}
                             {selectedHere > 0 ? (
-                              <span className="font-mono font-normal text-[9px] normal-case tracking-normal text-accent">
+                              <span className="font-mono font-normal text-[6px] normal-case tracking-normal text-accent">
                                 {' '}
                                 {selectedHere}
                               </span>
@@ -970,72 +1189,59 @@ export function Sidebar({
                     role="tabpanel"
                     id={`integration-panel-${integrationTab}`}
                     aria-labelledby={`integration-tab-${integrationTab}`}
-                    className="max-h-[min(20rem,45vh)] overflow-y-auto"
                   >
                     {(integrationsByCategory.get(integrationTab) ?? []).map((item) => {
                       const isChosen = config.selectedIntegrationIds.includes(item.id);
-                      const href = item.skillsShPath ? skillsShUrl(item.skillsShPath) : item.url;
                       return (
                         <button
                           key={item.id}
                           type="button"
+                          aria-pressed={isChosen}
                           onClick={() => onToggleIntegration(item.id)}
-                          className={`group relative w-full text-left px-3 py-2 border-b border-rule last:border-b-0 transition-colors ${
+                          className={`group relative flex w-full items-start gap-2 text-left px-2.5 py-1.5 border-b border-rule last:border-b-0 transition-colors ${
                             isChosen ? 'bg-surface-raised' : 'hover:bg-surface-raised'
                           }`}
                         >
-                          <div className="flex items-start gap-2">
-                            <div className={`mt-0.5 h-3 w-3 shrink-0 border flex items-center justify-center transition-colors ${
-                              isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[10px] font-semibold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>
+                                {item.name}
+                              </span>
+                            </div>
+                            <p className={`text-[10px] leading-snug mt-0.5 line-clamp-2 ${
+                              isChosen ? 'text-ink-muted' : 'text-ink-faint'
                             }`}>
-                              {isChosen && (
-                                <svg className="h-2 w-2 text-surface" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} aria-hidden>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1 pr-6">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`text-[11px] font-bold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>
-                                  {item.name}
-                                </span>
-                              </div>
-                              <p className={`text-[9px] leading-snug mt-0.5 line-clamp-2 ${
-                                isChosen ? 'text-ink-muted' : 'text-ink-faint'
-                              }`}>
-                                {item.description}
+                              {item.description}
+                            </p>
+                            {item.installHint ? (
+                              <p className="text-[10px] text-ink-faint mt-1 font-mono leading-tight">
+                                {item.installHint}
                               </p>
-                              {item.installHint && (
-                                <p className="text-[8px] text-ink-faint mt-1 font-mono leading-tight">
-                                  {item.installHint}
-                                </p>
-                              )}
-                            </div>
+                            ) : null}
                           </div>
-                          {href && (
-                            <a
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label={`${item.name} — open link in new tab`}
-                              className="absolute top-2 right-2 z-10 text-[9px] font-semibold text-accent hover:underline opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
-                            >
-                              ↗
-                            </a>
-                          )}
+                          <div
+                            className={`mt-px h-2.5 w-2.5 shrink-0 border flex items-center justify-center transition-colors ${
+                              isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
+                            }`}
+                            aria-hidden="true"
+                          >
+                            {isChosen ? (
+                              <svg className="h-1.5 w-1.5 text-surface" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : null}
+                          </div>
                         </button>
                       );
                     })}
                   </div>
                 </div>
               </div>
-            )}
-          </>
+              </div>
         )}
-            <div className="flex-1 grow basis-0 min-h-0 shrink-0" aria-hidden />
           </div>
         </div>
+      </div>
       </div>
 
     </aside>
@@ -1062,15 +1268,13 @@ function BlockSubagentModelRow({
   return (
     <div className="border-t border-rule">
       <div className="px-2.5 py-1.5">
-        <span className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em]">
-          Subagent model — {lane.label}
-        </span>
+        <span className={`block ${SIDEBAR_LABEL}`}>Subagent model — {lane.label}</span>
       </div>
       <div className="px-2.5 pb-2.5">
-        <p className="text-[9px] text-ink-muted leading-snug mb-1.5">
+        <p className="mb-1.5 text-[10px] font-normal leading-snug text-ink-muted">
           For a focused session on this block, use this lane and optional model override. Shared with other blocks in the same lane.
         </p>
-        <p className="text-[9px] text-ink-faint leading-snug mb-1.5">{lane.hint}</p>
+        <p className="mb-1.5 text-[10px] font-normal leading-snug text-ink-faint">{lane.hint}</p>
         <CustomSelect
           id={selectId}
           size="sm"
@@ -1116,10 +1320,10 @@ function IncludedBlockExpandedPanel({
   return (
     <div className="border-t border-rule bg-surface-raised animate-fade-in">
       <div className="px-2.5 py-2.5 space-y-2">
-        <p className="text-[10px] text-ink-secondary leading-relaxed">{block.explanation}</p>
+        <p className="text-[10px] font-normal text-ink-secondary leading-relaxed">{block.explanation}</p>
         <div>
-          <p className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em] mb-0.5">Why</p>
-          <p className="text-[10px] text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
+          <p className={`mb-0.5 ${SIDEBAR_LABEL}`}>Why</p>
+          <p className="text-[10px] font-normal text-ink-secondary leading-relaxed">{block.whyNeeded}</p>
         </div>
       </div>
       {config.useSubagents ? (
@@ -1138,7 +1342,7 @@ function IncludedBlockExpandedPanel({
         return (
           <div className="border-t border-rule">
             <div className="px-2.5 py-1.5">
-              <span className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em]">Technology</span>
+              <span className={`block ${SIDEBAR_LABEL}`}>Technology</span>
             </div>
             {options.map((option) => {
               const isChosen = chosenId === option.id;
@@ -1161,12 +1365,14 @@ function IncludedBlockExpandedPanel({
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[10px] font-bold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>{option.name}</span>
+                      <span className={`text-[10px] font-semibold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>
+                        {option.name}
+                      </span>
                       {option.isDefault && (
-                        <span className="text-[8px] font-bold uppercase tracking-wider text-accent">Default</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-accent">Default</span>
                       )}
                     </div>
-                    <p className={`text-[9px] leading-snug mt-0.5 line-clamp-2 ${
+                    <p className={`text-[10px] leading-snug mt-0.5 line-clamp-2 ${
                       isChosen ? 'text-ink-muted' : 'text-ink-faint'
                     }`}>{option.description}</p>
                   </div>
@@ -1182,12 +1388,12 @@ function IncludedBlockExpandedPanel({
         return (
           <div className="border-t border-rule">
             <div className="px-2.5 py-1.5">
-              <span className="text-[8px] font-bold text-ink-faint uppercase tracking-[0.12em]">Libraries</span>
+              <span className={`block ${SIDEBAR_LABEL}`}>Libraries</span>
             </div>
             <div className="px-2.5 pb-2 space-y-2">
               {categories.map((cat) => (
                 <div key={cat}>
-                  <p className="text-[8px] font-semibold text-ink-faint uppercase tracking-wider mb-1">{cat}</p>
+                  <p className={`mb-1 ${SIDEBAR_LABEL}`}>{cat}</p>
                   <div className="flex flex-wrap gap-1">
                     {libs.filter((l) => l.category === cat).map((lib) => (
                       <LibraryChip
@@ -1208,68 +1414,6 @@ function IncludedBlockExpandedPanel({
           </div>
         );
       })()}
-    </div>
-  );
-}
-
-function SectionHeader({
-  label,
-  description,
-  count,
-  open,
-  onToggle,
-  sectionRef,
-  suppressTopBorder,
-}: {
-  label: string;
-  /** Shown under the title row when the section is expanded. */
-  description?: string;
-  count?: number;
-  open: boolean;
-  onToggle: () => void;
-  sectionRef?: (el: HTMLElement | null) => void;
-  /** Avoid stacking with the masthead’s bottom border (first section only). */
-  suppressTopBorder?: boolean;
-}) {
-  return (
-    <div
-      ref={sectionRef}
-      className={`w-full shrink-0 ${suppressTopBorder ? '' : 'border-t border-rule'}`}
-    >
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
-        aria-expanded={open}
-        className="w-full flex items-center gap-2.5 px-5 py-3.5 min-h-[44px] text-left hover:bg-surface-raised transition-colors cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-      >
-        <h4 className="text-[15px] font-semibold text-ink tracking-tight flex-1 leading-tight m-0">
-          {label}
-        </h4>
-        {count !== undefined && (
-          <span className="text-[11px] text-ink-muted font-semibold tabular-nums">
-            {count}
-          </span>
-        )}
-        <svg
-          className={`h-3 w-3 shrink-0 text-ink-muted transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}
-          aria-hidden={true}
-        >
-          <path strokeLinecap="square" d="M9 5l7 7-7 7" />
-        </svg>
-      </div>
-      {open && description ? (
-        <p className="px-5 pb-3 pt-0 text-[9px] text-ink-muted leading-snug">
-          {description}
-        </p>
-      ) : null}
     </div>
   );
 }

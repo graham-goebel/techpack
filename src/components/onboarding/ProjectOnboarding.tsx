@@ -3,6 +3,7 @@ import type { ProjectConfig, ProjectFileResource, Tier } from '../../types';
 import { projectTypes } from '../../data/projectTypes';
 import { getTypeDetailFields } from '../../data/projectTypeDetailFields';
 import { blocks } from '../../data/blocks';
+import { techOptions } from '../../data/techOptions';
 import {
   getVisibleIntegrations,
   skillsShUrl,
@@ -17,6 +18,13 @@ import { CustomSelect } from '../ui/CustomSelect';
 
 const STEPS = ['details', 'blocks', 'resources'] as const;
 type StepId = (typeof STEPS)[number];
+
+function blockDefaultAndPickedTech(blockId: string, config: ProjectConfig) {
+  const defaultOpt = techOptions.find((o) => o.blockId === blockId && o.isDefault);
+  const pickedId = config.techChoices[blockId];
+  const pickedOpt = pickedId ? techOptions.find((o) => o.id === pickedId) : undefined;
+  return { defaultOpt, pickedOpt };
+}
 
 const INTEGRATION_CATEGORY_LABELS: Record<IntegrationCategory, string> = {
   skill: 'Skills',
@@ -33,7 +41,7 @@ function OnboardingBlockExplanationTooltip({ blockId, explanation }: { blockId: 
     <div className="group relative inline-flex max-w-full min-w-0">
       <button
         type="button"
-        className="text-[11px] font-medium text-ink-muted decoration-rule decoration-1 underline-offset-2 hover:text-ink-secondary hover:decoration-ink-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:ring-offset-surface rounded-sm text-left"
+        className="text-[10px] font-medium text-ink-muted decoration-rule decoration-1 underline-offset-2 hover:text-ink-secondary hover:decoration-ink-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:ring-offset-surface rounded-sm text-left"
         aria-describedby={descId}
       >
         Full description
@@ -44,7 +52,7 @@ function OnboardingBlockExplanationTooltip({ blockId, explanation }: { blockId: 
       <div
         role="tooltip"
         aria-hidden="true"
-        className="pointer-events-none absolute z-[250] left-0 top-[calc(100%+6px)] w-[min(20rem,calc(100vw-2.5rem))] rounded-md border border-white/12 bg-ink px-3 py-2.5 text-[11px] text-surface/90 leading-relaxed shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
+        className="pointer-events-none absolute z-[250] left-0 top-[calc(100%+6px)] w-[min(20rem,calc(100vw-2.5rem))] rounded-md border border-white/12 bg-ink px-3 py-2.5 text-[10px] text-surface/90 leading-relaxed shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
       >
         {explanation}
       </div>
@@ -166,14 +174,14 @@ export function ProjectOnboarding({
             <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-1">
               Setup · Step {stepIndex + 1} of {STEPS.length}
             </p>
-            <h1 id="onboarding-title" className="text-xl sm:text-2xl font-bold text-ink tracking-tight truncate">
+            <h1 id="onboarding-title" className="text-xl sm:text-2xl font-semibold text-ink tracking-tight truncate">
               {step === 'details' && 'Project details'}
               {step === 'blocks' && 'Architecture blocks'}
               {step === 'resources' && 'Resources & integrations'}
             </h1>
             {projectType && (
               <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-xs text-ink-muted">{projectType.name}</span>
+                <span className="text-[10px] text-ink-muted">{projectType.name}</span>
                 <ComplexityDots filled={projectType.tier} size="pill" />
               </div>
             )}
@@ -190,9 +198,9 @@ export function ProjectOnboarding({
                 so model suggestions and prompt wording stay compatible. The extra fields below are tailored to your
                 project type.
               </p>
-              <div className="border border-rule bg-surface-raised/50 rounded-lg overflow-hidden divide-y divide-rule">
+              <div className="border border-rule rounded-lg overflow-hidden divide-y divide-rule">
                 <div className="p-4 sm:p-5">
-                  <label className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+                  <label className="block text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
                     Name
                   </label>
                   <input
@@ -205,7 +213,7 @@ export function ProjectOnboarding({
                   />
                 </div>
                 <div className="p-4 sm:p-5">
-                  <label className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+                  <label className="block text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
                     Description
                   </label>
                   <textarea
@@ -220,7 +228,7 @@ export function ProjectOnboarding({
                   <div className="p-4 sm:p-5">
                     <label
                       htmlFor="onboarding-ai-tool"
-                      className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2"
+                      className="block text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2"
                     >
                       AI coding tool
                     </label>
@@ -229,7 +237,12 @@ export function ProjectOnboarding({
                       className="max-w-md"
                       value={toolSelectValue}
                       onChange={(v) => onSetTool(v || null)}
-                      options={toolsForTier.map((t) => ({ value: t.id, label: t.name }))}
+                      options={toolsForTier.map((t) => ({
+                        value: t.id,
+                        label: t.name,
+                        description: t.description,
+                        iconKey: t.id,
+                      }))}
                       aria-label="AI coding tool"
                       size="md"
                     />
@@ -240,7 +253,7 @@ export function ProjectOnboarding({
                 )}
                 {typeDetailFields.map((field) => (
                   <div key={field.id} className="p-4 sm:p-5">
-                    <div className="block text-[9px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+                    <div className="block text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
                       {field.label}
                     </div>
                     {field.input === 'chips' && field.options ? (
@@ -255,7 +268,7 @@ export function ProjectOnboarding({
                                 type="button"
                                 aria-pressed={selected}
                                 onClick={() => onSetTypeDetail(field.id, selected ? '' : opt.value)}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors ${
+                                className={`px-3 py-1.5 text-[10px] font-semibold rounded-md border transition-colors ${
                                   selected
                                     ? 'bg-ink text-surface border-ink'
                                     : 'bg-surface text-ink-secondary border-rule hover:border-neutral-300'
@@ -320,6 +333,7 @@ export function ProjectOnboarding({
                   const isSelected = config.selectedBlockIds.includes(block.id);
                   const isRequired = status === 'required';
                   const active = isRequired || isSelected;
+                  const { defaultOpt, pickedOpt } = blockDefaultAndPickedTech(block.id, config);
 
                   return (
                     <li
@@ -330,16 +344,13 @@ export function ProjectOnboarding({
                     >
                       <div className="flex flex-col flex-1 w-full min-h-0 border border-rule rounded-lg overflow-visible bg-surface hover:bg-surface-raised/80 transition-colors">
                         <div className="flex gap-3 p-4 sm:p-5 flex-1 min-h-0">
-                          <span className="shrink-0 text-ink-muted mt-0.5" aria-hidden>
-                            <BlockOcticon blockId={block.id} size={20} />
-                          </span>
                           <div className="min-w-0 flex-1 flex flex-col gap-1.5">
                             <div className="flex flex-wrap items-baseline gap-2 gap-y-1">
                               <span className={`text-[14px] sm:text-[15px] font-semibold leading-snug ${active ? 'text-ink' : 'text-ink-muted'}`}>
                                 {block.name}
                               </span>
                               <span
-                                className={`text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                                className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
                                   status === 'required'
                                     ? 'text-ink-muted'
                                     : status === 'recommended'
@@ -350,11 +361,48 @@ export function ProjectOnboarding({
                                 {status === 'required' ? 'Required' : status === 'recommended' ? 'Recommended' : 'Optional'}
                               </span>
                             </div>
-                            <p className="text-xs text-ink-muted leading-relaxed">{block.summary}</p>
+                            <p className="text-[10px] text-ink-muted leading-relaxed">{block.summary}</p>
+                            {(defaultOpt || pickedOpt) && (
+                              <div className="mt-1.5 space-y-1 border-t border-rule/50 pt-1.5">
+                                {!active && defaultOpt ? (
+                                  <p className="text-[10px] leading-snug text-ink-muted">
+                                    <span className="font-medium text-ink-secondary">{defaultOpt.name}</span>
+                                  </p>
+                                ) : null}
+                                {active && pickedOpt && defaultOpt && pickedOpt.id === defaultOpt.id ? (
+                                  <p className="text-[10px] leading-snug text-ink-muted">
+                                    <span className="font-medium text-ink-secondary">{pickedOpt.name}</span>
+                                  </p>
+                                ) : null}
+                                {active && pickedOpt && defaultOpt && pickedOpt.id !== defaultOpt.id ? (
+                                  <>
+                                    <p className="text-[10px] leading-snug text-ink-muted">
+                                      <span className="font-medium text-ink-secondary">{defaultOpt.name}</span>
+                                    </p>
+                                    <p className="text-[10px] leading-snug text-ink-muted">
+                                      <span className="font-semibold text-ink">{pickedOpt.name}</span>
+                                    </p>
+                                  </>
+                                ) : null}
+                                {active && pickedOpt && !defaultOpt ? (
+                                  <p className="text-[10px] leading-snug text-ink-muted">
+                                    <span className="font-medium text-ink-secondary">{pickedOpt.name}</span>
+                                  </p>
+                                ) : null}
+                                {active && !pickedOpt && defaultOpt ? (
+                                  <p className="text-[10px] leading-snug text-ink-muted">
+                                    <span className="font-medium text-ink-secondary">{defaultOpt.name}</span>
+                                  </p>
+                                ) : null}
+                              </div>
+                            )}
                             <div className="flex-1 min-h-0 flex items-end pt-0.5">
                               <OnboardingBlockExplanationTooltip blockId={block.id} explanation={block.explanation} />
                             </div>
                           </div>
+                          <span className="shrink-0 text-ink mt-0.5" aria-hidden>
+                            <BlockOcticon blockId={block.id} size={20} />
+                          </span>
                         </div>
                         {!isRequired && (
                           <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-0 flex justify-end border-t border-rule/60 bg-surface/80">
@@ -389,7 +437,7 @@ export function ProjectOnboarding({
               </p>
 
               <section>
-                <h2 className="text-[11px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-3">Resources</h2>
+                <h2 className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-3">Resources</h2>
                 <div className="border border-rule rounded-lg overflow-hidden bg-surface-raised/30">
                   <ResourcesPanel
                     resources={config.resources ?? []}
@@ -402,10 +450,10 @@ export function ProjectOnboarding({
 
               {visibleIntegrations.length > 0 ? (
                 <section>
-                  <h2 className="text-[11px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+                  <h2 className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
                     Integrations
                   </h2>
-                  <p className="text-xs text-ink-muted mb-3 leading-relaxed">
+                  <p className="text-[10px] text-ink-muted mb-3 leading-relaxed">
                     Suggested for your project. Links may open the skills directory or vendor docs.
                   </p>
                   <div className="border border-rule bg-surface rounded-lg overflow-hidden">
@@ -428,7 +476,7 @@ export function ProjectOnboarding({
                             role="tab"
                             aria-selected={isActive}
                             onClick={() => setIntegrationTab(cat)}
-                            className={`flex-1 min-w-[4.5rem] px-2 py-2.5 text-[9px] font-bold uppercase tracking-[0.08em] transition-colors border-b-2 -mb-px ${
+                            className={`flex-1 min-w-[4.5rem] px-2 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] transition-colors border-b-2 -mb-px ${
                               isActive
                                 ? 'text-ink border-ink bg-surface'
                                 : 'text-ink-muted border-transparent hover:text-ink-secondary'
@@ -480,7 +528,7 @@ export function ProjectOnboarding({
                               <span className={`text-sm font-semibold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>
                                 {item.name}
                               </span>
-                              <p className="text-xs text-ink-muted mt-0.5 leading-snug">{item.description}</p>
+                              <p className="text-[10px] text-ink-muted mt-0.5 leading-snug">{item.description}</p>
                               {href && (
                                 <a
                                   href={href}
@@ -500,7 +548,7 @@ export function ProjectOnboarding({
                   </div>
                 </section>
               ) : (
-                <p className="text-xs text-ink-muted border border-dashed border-rule rounded-lg px-4 py-3">
+                <p className="text-[10px] text-ink-muted border border-dashed border-rule rounded-lg px-4 py-3">
                   No integration suggestions yet. Add more detail in the first step to surface skills and APIs, or skip
                   and configure later.
                 </p>
@@ -515,7 +563,7 @@ export function ProjectOnboarding({
           <button
             type="button"
             onClick={goBack}
-            className="text-xs font-bold uppercase tracking-wider text-ink-muted hover:text-ink py-2.5 sm:py-0 text-center sm:text-left"
+            className="text-[10px] font-bold uppercase tracking-wider text-ink-muted hover:text-ink py-2.5 sm:py-0 text-center sm:text-left"
           >
             {step === 'details' ? '← Change project type' : '← Back'}
           </button>
@@ -524,7 +572,7 @@ export function ProjectOnboarding({
               <button
                 type="button"
                 onClick={onComplete}
-                className="order-2 sm:order-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-ink-muted border border-rule hover:bg-surface-raised transition-colors"
+                className="order-2 sm:order-1 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted border border-rule hover:bg-surface-raised transition-colors"
               >
                 Skip to tech stack
               </button>
@@ -532,7 +580,7 @@ export function ProjectOnboarding({
             <button
               type="button"
               onClick={goNext}
-              className="order-1 sm:order-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider bg-ink text-surface hover:opacity-90 transition-opacity"
+              className="order-1 sm:order-2 px-5 py-2.5 text-[10px] font-bold tracking-tight bg-ink text-surface hover:opacity-90 transition-opacity"
             >
               {step === 'resources' ? 'Finish & view stack' : 'Continue'}
             </button>

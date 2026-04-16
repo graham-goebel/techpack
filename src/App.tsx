@@ -13,6 +13,7 @@ import { parseProjectConfig } from './utils/projectConfigParse';
 function App() {
   const [appView, setAppView] = useState<'home' | 'workspace'>('home');
   const [pendingProjectTypeId, setPendingProjectTypeId] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const {
     config,
@@ -25,6 +26,7 @@ function App() {
     setProjectDescription,
     setTypeDetail,
     setModel,
+    setBuildAsYouGo,
     setUseSubagents,
     setSubagentModel,
     setTool,
@@ -125,16 +127,13 @@ function App() {
     setAppView('workspace');
   }, [resetWorkspace]);
 
-  const handleContinueSession = useCallback(() => setAppView('workspace'), []);
-
   const inOnboarding = Boolean(config.projectTypeId && config.onboardingCompleted === false);
 
   const homeCornerButton =
     appView === 'home' ? null : (
-      <div className="fixed top-4 right-4 z-[220] sm:top-5 sm:right-6 pointer-events-auto">
+      <div className="fixed top-4 right-4 z-[220] pointer-events-auto sm:top-6 sm:right-6">
         <HomeNavButton
           onClick={goHome}
-          iconSize={18}
           className="border-rule bg-white/90 shadow-lg shadow-black/10 backdrop-blur-md"
         />
       </div>
@@ -150,7 +149,6 @@ function App() {
           onOpenPrompt={handleOpenSaved}
           onDeletePrompt={handleDeleteSaved}
           onNewPrompt={handleNewPrompt}
-          onContinueSession={handleContinueSession}
         />
       </>
     );
@@ -184,27 +182,37 @@ function App() {
     <>
       {confirmProjectTypeModal}
       {homeCornerButton}
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen min-w-0 overflow-hidden">
         {config.projectTypeId ? (
-          <Sidebar
-            config={config}
-            tier={tier}
-            onSetProjectType={requestSetProjectType}
-            onToggleBlock={toggleBlock}
-            onSetTechChoice={setTechChoice}
-            onSetName={setProjectName}
-            onSetDescription={setProjectDescription}
-            onSetTypeDetail={setTypeDetail}
-            onSetModel={setModel}
-            onSetUseSubagents={setUseSubagents}
-            onSetSubagentModel={setSubagentModel}
-            onSetTool={setTool}
-            onToggleLibrary={toggleLibrary}
-            onToggleIntegration={toggleIntegration}
-            onAddResourceUrl={addResourceUrl}
-            onAddResourceFile={addResourceFile}
-            onRemoveResource={removeResource}
-          />
+          <div
+            className={`shrink-0 overflow-hidden bg-surface transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none motion-reduce:duration-0 ${
+              sidebarCollapsed ? 'w-[52px] min-w-[52px]' : 'w-[360px]'
+            }`}
+          >
+            <Sidebar
+              config={config}
+              tier={tier}
+              collapsed={sidebarCollapsed}
+              onSetProjectType={requestSetProjectType}
+              onToggleBlock={toggleBlock}
+              onSetTechChoice={setTechChoice}
+              onSetName={setProjectName}
+              onSetDescription={setProjectDescription}
+              onSetTypeDetail={setTypeDetail}
+              onSetModel={setModel}
+              onSetBuildAsYouGo={setBuildAsYouGo}
+              onSetUseSubagents={setUseSubagents}
+              onSetSubagentModel={setSubagentModel}
+              onSetTool={setTool}
+              onToggleLibrary={toggleLibrary}
+              onToggleIntegration={toggleIntegration}
+              onAddResourceUrl={addResourceUrl}
+              onAddResourceFile={addResourceFile}
+              onRemoveResource={removeResource}
+              onCollapseSidebar={() => setSidebarCollapsed(true)}
+              onExpandSidebar={() => setSidebarCollapsed(false)}
+            />
+          </div>
         ) : null}
         <MainContent
           config={config}

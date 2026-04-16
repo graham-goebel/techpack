@@ -2,10 +2,10 @@ import type { BlockLibrary } from '../../types';
 
 /** Stack: centered. Sidebar: left-aligned so tooltips are not clipped by aside overflow-x-hidden (304px rail). */
 const TOOLTIP_BASE_STACK =
-  'pointer-events-none absolute z-[230] left-1/2 -translate-x-1/2 w-[min(17rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100';
+  'pointer-events-none absolute z-[230] left-1/2 -translate-x-1/2 w-[min(17rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[10px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100';
 
 const TOOLTIP_BASE_SIDEBAR =
-  'pointer-events-none absolute z-[230] left-0 translate-x-0 w-max max-w-[min(17rem,calc(304px-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[11px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100';
+  'pointer-events-none absolute z-[230] left-0 translate-x-0 w-max max-w-[min(17rem,calc(360px-52px-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[10px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100';
 
 type LibraryChipVariant = 'stack' | 'sidebar';
 
@@ -33,9 +33,7 @@ export function LibraryChip({
   const descId = `${idPrefix}-lib-desc-${lib.id}`;
 
   const sizeClasses =
-    size === 'sm'
-      ? 'inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold rounded-sm border transition-colors'
-      : 'inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-sm border transition-colors';
+    'inline-flex items-center gap-px px-1 py-px text-[4px] font-medium leading-none rounded-sm border transition-colors';
 
   const variantClasses =
     variant === 'sidebar'
@@ -57,6 +55,7 @@ export function LibraryChip({
       <button
         type="button"
         aria-describedby={descId}
+        data-chip-size={size}
         onClick={(e) => {
           if (stopPropagationOnClick) e.stopPropagation();
           onToggle();
@@ -65,11 +64,11 @@ export function LibraryChip({
       >
         {!isActive && (
           <svg
-            className="h-2.5 w-2.5 shrink-0"
+            className="h-[4px] w-[4px] shrink-0"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
-            strokeWidth={2}
+            strokeWidth={2.5}
             aria-hidden
           >
             <path strokeLinecap="round" d="M12 5v14M5 12h14" />
@@ -78,11 +77,11 @@ export function LibraryChip({
         {lib.name}
         {isActive && (
           <svg
-            className={`h-2 w-2 shrink-0 ${variant === 'sidebar' ? 'text-ink-faint' : 'opacity-80'}`}
+            className={`h-1 w-1 shrink-0 ${variant === 'sidebar' ? 'text-ink-faint' : 'opacity-80'}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
-            strokeWidth={2.5}
+            strokeWidth={3}
             aria-hidden
           >
             <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />

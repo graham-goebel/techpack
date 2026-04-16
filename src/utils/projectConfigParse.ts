@@ -65,6 +65,8 @@ export function parseProjectConfig(data: unknown, requireProjectType = false): P
 
   const useSubagents = typeof o.useSubagents === 'boolean' ? o.useSubagents : true;
 
+  const buildAsYouGo = typeof o.buildAsYouGo === 'boolean' ? o.buildAsYouGo : false;
+
   return {
     id: o.id,
     name: typeof o.name === 'string' ? o.name : '',
@@ -73,6 +75,7 @@ export function parseProjectConfig(data: unknown, requireProjectType = false): P
     techChoices,
     projectDescription: typeof o.projectDescription === 'string' ? o.projectDescription : '',
     typeDetails,
+    buildAsYouGo,
     useSubagents,
     subagentModels,
     selectedModelId: typeof o.selectedModelId === 'string' ? o.selectedModelId : '',
