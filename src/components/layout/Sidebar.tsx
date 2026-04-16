@@ -15,6 +15,7 @@ import {
   type IntegrationCategory,
   type IntegrationItem,
 } from '../../data/integrations';
+import { IntegrationBrandIcon } from '../icons/IntegrationBrandIcon';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ToolLogoGlyph } from '../icons/ToolLogoGlyph';
 import { ComplexityDots } from '../ui/ComplexityDots';
@@ -33,6 +34,7 @@ interface SidebarProps {
   onSetTypeDetail: (fieldId: string, value: string) => void;
   onSetModel: (modelId: string) => void;
   onSetBuildAsYouGo: (value: boolean) => void;
+  onSetPreferOpenSourceOnly: (value: boolean) => void;
   onSetUseSubagents: (value: boolean) => void;
   onSetSubagentModel: (laneId: string, modelId: string) => void;
   onSetTool: (toolId: string | null) => void;
@@ -54,8 +56,19 @@ const SIDEBAR_LABEL =
   'text-[8px] font-semibold uppercase tracking-[0.1em] text-ink-secondary leading-snug';
 /** leading-snug avoids ascender clipping; min-w-0 + break-words so long labels wrap in narrow sidebar */
 const SIDEBAR_FIELD_LABEL = `block w-full min-w-0 break-words ${SIDEBAR_LABEL} mb-1`;
-/** Body + values in forms (matches CustomSelect md) */
-const SIDEBAR_BODY = 'text-sm text-ink leading-normal';
+/** Panel tab titles (Overview, Details, Blocks, …) — primary hierarchy above rail body */
+const SIDEBAR_PANEL_TITLE =
+  'text-[18px] font-semibold tracking-tight text-ink leading-tight';
+/** Closed trigger / list primary line — matches project type + CustomSelect sidebar */
+const SIDEBAR_FIELD_VALUE = 'text-xs font-semibold text-ink leading-tight';
+/** Primary line inside cards / selectors (toggles, chips) — 10px scale */
+const SIDEBAR_CARD_PRIMARY = 'text-[10px] font-semibold text-ink leading-tight';
+/** Inputs & multi-line fields in the rail — same 10px scale as CustomSelect sidebar + card rows */
+const SIDEBAR_BODY = 'text-[10px] leading-snug text-ink';
+
+/** Hover hint for compact toggle rows (label only; full text in tooltip above row) */
+const SIDEBAR_HELP_TOOLTIP =
+  'pointer-events-none absolute z-[230] left-3 right-3 bottom-full mb-1 rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[10px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100';
 
 function SidebarRailNav({
   activeRail,
@@ -99,7 +112,7 @@ function SidebarRailNav({
 
   return (
     <nav
-      className="flex h-full min-h-0 w-[52px] shrink-0 flex-col items-center gap-0.5 self-stretch border-r border-rule bg-surface-raised py-2 pt-3"
+      className="flex h-full min-h-0 w-[52px] shrink-0 flex-col items-center gap-0.5 self-stretch bg-surface py-2 pt-3"
       aria-label="Sidebar sections"
     >
       <button
@@ -188,11 +201,11 @@ function SidebarPanelHeader({
   count?: number;
 }) {
   return (
-    <div className="shrink-0 border-b border-rule px-3 py-2">
+    <div className="shrink-0 px-3 pt-4 pb-2">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 className="m-0 text-[10px] font-semibold leading-snug tracking-tight text-ink">{label}</h2>
+        <h2 className={`m-0 ${SIDEBAR_PANEL_TITLE}`}>{label}</h2>
         {count !== undefined ? (
-          <span className="text-[10px] font-medium tabular-nums text-ink-muted">{count}</span>
+          <span className="text-xs font-medium tabular-nums text-ink-muted">{count}</span>
         ) : null}
       </div>
       {description ? (
@@ -233,53 +246,67 @@ function SidebarBlockGridCard({
         {block.summary}
       </span>
       <div
-        className={`relative transition-colors ${
+        className={`relative flex items-center gap-px rounded-lg px-2 py-1.5 transition-colors ${
           isExpanded
-            ? 'bg-surface-raised ring-1 ring-inset ring-ink/[0.12]'
-            : 'bg-white hover:bg-surface-raised/65'
+            ? 'bg-surface-raised ring-1 ring-inset ring-ink/[0.08]'
+            : 'bg-white hover:bg-black/[0.03]'
         } ${variant === 'recommended' && !isExpanded ? 'opacity-[0.72] hover:opacity-100' : ''}`}
       >
-        {isRequired ? (
-          <span className="absolute right-1 top-1 z-[1] rounded-sm bg-accent-light px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
-            Req
-          </span>
-        ) : null}
-        {!isRequired ? (
-          <button
-            type="button"
-            onClick={onCornerAction}
-            className={`absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-sm border border-transparent text-ink-muted transition-colors hover:border-rule hover:bg-surface-raised hover:text-ink ${
-              variant === 'included' ? 'opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100' : ''
-            }`}
-            aria-label={cornerLabel}
-            title={cornerLabel}
-          >
-            {variant === 'included' ? (
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
-                <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                <path strokeLinecap="round" d="M12 5v14M5 12h14" />
-              </svg>
-            )}
-          </button>
-        ) : null}
         <button
           type="button"
           onClick={onToggleExpand}
           aria-expanded={isExpanded}
           aria-describedby={summaryId}
-          className="flex min-h-[72px] w-full flex-row items-center gap-3 px-3 py-2.5 pr-10 text-left"
+          className="flex min-h-[3.5rem] min-w-0 flex-1 flex-row items-center gap-3 py-1 pl-1 pr-1 text-left"
         >
-          <BlockOcticon blockId={block.id} size={20} className="shrink-0 text-ink-secondary" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-raised">
+            <BlockOcticon blockId={block.id} size={22} className="text-ink-secondary" />
+          </div>
           <span className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
-            <span className="line-clamp-2 text-[10px] font-semibold leading-tight text-ink">{block.name}</span>
+            <span className="line-clamp-2 text-[12px] font-semibold leading-[1.25] text-ink">
+              {block.name}
+            </span>
+            <span className="line-clamp-2 w-full text-[10px] leading-snug text-ink-muted">{block.summary}</span>
             {techForPreview ? (
               <span className="line-clamp-1 w-full text-[10px] text-ink-faint">{techForPreview.name}</span>
             ) : null}
           </span>
+          <svg
+            className={`h-4 w-4 shrink-0 text-ink-faint transition-transform ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
+        {!isRequired ? (
+          <button
+            type="button"
+            onClick={onCornerAction}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink ${
+              variant === 'included'
+                ? 'opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100'
+                : ''
+            }`}
+            aria-label={cornerLabel}
+            title={cornerLabel}
+          >
+            {variant === 'included' ? (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+              </svg>
+            )}
+          </button>
+        ) : null}
       </div>
       {!isExpanded ? (
         <div
@@ -305,6 +332,7 @@ export function Sidebar({
   onSetTypeDetail,
   onSetModel,
   onSetBuildAsYouGo,
+  onSetPreferOpenSourceOnly,
   onSetUseSubagents,
   onSetSubagentModel,
   onSetTool,
@@ -571,8 +599,8 @@ export function Sidebar({
           collapsed ? 'hidden' : ''
         }`}
       >
-      {/* Masthead — same height + border as main chrome row */}
-      <div className="app-chrome-row shrink-0 flex flex-col justify-center border-b border-rule-strong min-w-0 px-4">
+      {/* Masthead — hidden for now; same height + border as main chrome row when shown */}
+      <div className="app-chrome-row hidden shrink-0 flex flex-col justify-center border-b border-rule-strong min-w-0 px-4">
         <div
           className="text-[17px] font-semibold text-ink leading-tight tracking-[-0.02em] truncate min-w-0"
           title={config.name.trim() || undefined}
@@ -611,7 +639,10 @@ export function Sidebar({
           <div className="flex min-w-0 flex-col">
         {activePanel === 'type' && (
           <div className="animate-fade-in">
-            <SidebarPanelHeader label="Overview" />
+            <SidebarPanelHeader
+              label="Overview"
+              description="Project type, AI tool, model, and options for how briefs and stack prompts are generated."
+            />
             <div className="px-3 pb-4 pt-1">
             <p id="sidebar-project-type-label" className={SIDEBAR_FIELD_LABEL}>
               Project type
@@ -623,25 +654,25 @@ export function Sidebar({
                 aria-expanded={projectTypeMenuOpen}
                 aria-haspopup="listbox"
                 aria-labelledby="sidebar-project-type-label"
-                className="w-full flex items-start gap-2 px-3 py-2.5 text-left border border-rule/40 rounded-lg bg-white/35 hover:bg-white/50 backdrop-blur-sm transition-colors"
+                className="w-full flex items-start gap-2 px-3 py-4 text-left border border-rule/40 rounded-lg bg-white/35 hover:bg-white/50 backdrop-blur-sm transition-colors min-h-[4.25rem]"
               >
                 <div className="min-w-0 flex-1 w-full">
                   {selectedProjectType ? (
                     <>
                       <div className="flex items-center justify-between gap-2 min-w-0 w-full">
-                        <span className="text-[10px] font-semibold text-ink leading-tight truncate min-w-0">
+                        <span className={`${SIDEBAR_FIELD_VALUE} text-ink truncate min-w-0`}>
                           {selectedProjectType.name}
                         </span>
                         <span aria-hidden className="shrink-0">
                           <ComplexityDots filled={selectedProjectType.tier} size="pill" />
                         </span>
                       </div>
-                      <p className="text-[10px] text-ink-muted leading-snug mt-1 line-clamp-2">
+                      <p className="text-[11px] text-ink-muted leading-snug mt-1 line-clamp-2">
                         {selectedProjectType.tagline}
                       </p>
                     </>
                   ) : (
-                    <span className="text-[10px] font-semibold text-ink-faint">
+                    <span className={`${SIDEBAR_FIELD_VALUE} text-ink-faint`}>
                       Select project type…
                     </span>
                   )}
@@ -678,19 +709,19 @@ export function Sidebar({
                           onSetProjectType(type.id);
                           setProjectTypeMenuOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-2.5 border-b border-rule last:border-b-0 transition-colors ${
+                        className={`w-full text-left px-3 py-4 min-h-[4.25rem] border-b border-rule last:border-b-0 transition-colors ${
                           isSelected ? 'bg-surface-raised' : 'hover:bg-surface-raised'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2 min-w-0 w-full">
-                          <span className={`text-[10px] font-semibold leading-tight truncate min-w-0 ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
+                          <span className={`${SIDEBAR_FIELD_VALUE} truncate min-w-0 ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
                             {type.name}
                           </span>
                           <span aria-hidden className="shrink-0">
                             <ComplexityDots filled={type.tier} size="pill" />
                           </span>
                         </div>
-                        <p className="text-[10px] text-ink-muted leading-snug mt-1 pl-0">
+                        <p className="text-[11px] text-ink-muted leading-snug mt-1.5 pl-0">
                           {type.tagline}
                         </p>
                       </button>
@@ -701,7 +732,7 @@ export function Sidebar({
             </div>
 
             {config.projectTypeId && (
-              <div className="mt-3 pt-3 border-t border-rule space-y-3">
+              <div className="mt-3 pt-3 space-y-3">
                 <p className={`${SIDEBAR_LABEL} px-0.5`}>AI & tooling</p>
                 {/* Tool dropdown — above model list */}
                 <div className="relative" ref={toolMenuRef}>
@@ -711,23 +742,18 @@ export function Sidebar({
                     aria-expanded={toolMenuOpen}
                     aria-haspopup="listbox"
                     aria-label="AI coding tool"
-                    className="w-full flex items-start gap-2 px-3 py-2.5 text-left border border-rule/40 rounded-lg bg-white/35 hover:bg-white/50 backdrop-blur-sm transition-colors"
+                    className="w-full flex items-start gap-2 px-3 py-4 text-left border border-rule/40 rounded-lg bg-white/35 hover:bg-white/50 backdrop-blur-sm transition-colors min-h-[4.25rem]"
                   >
                     <div className="min-w-0 flex-1">
                       {selectedTool ? (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <ToolLogoGlyph toolId={selectedTool.id} className="h-5 w-5 shrink-0 text-ink" />
-                            <span className="text-[10px] font-semibold text-ink leading-tight truncate">
-                              {selectedTool.name}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-ink-muted leading-snug mt-1 line-clamp-2">
-                            {selectedTool.description}
-                          </p>
-                        </>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <ToolLogoGlyph toolId={selectedTool.id} className="h-5 w-5 shrink-0 text-ink" />
+                          <span className={`${SIDEBAR_FIELD_VALUE} truncate min-w-0`}>
+                            {selectedTool.name}
+                          </span>
+                        </div>
                       ) : (
-                        <span className="text-[10px] font-semibold text-ink-faint">
+                        <span className={`${SIDEBAR_FIELD_VALUE} text-ink-faint`}>
                           Select tool…
                         </span>
                       )}
@@ -764,13 +790,13 @@ export function Sidebar({
                               onSetTool(t.id);
                               setToolMenuOpen(false);
                             }}
-                            className={`w-full text-left px-3 py-2.5 border-b border-rule last:border-b-0 transition-colors ${
+                            className={`w-full text-left px-3 py-4 min-h-[4.25rem] border-b border-rule last:border-b-0 transition-colors ${
                               isSelected ? 'bg-surface-raised' : 'hover:bg-surface-raised'
                             }`}
                           >
                             <div className="flex items-center gap-2">
                               <ToolLogoGlyph toolId={t.id} className="h-5 w-5 shrink-0 text-ink" />
-                              <span className={`text-[10px] font-semibold leading-tight flex-1 truncate ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
+                              <span className={`text-xs font-semibold leading-tight flex-1 truncate ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
                                 {t.name}
                               </span>
                               {t.url && (
@@ -779,14 +805,14 @@ export function Sidebar({
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={(e) => e.stopPropagation()}
-                                  className="text-[10px] text-accent hover:underline shrink-0"
+                                  className="text-[11px] text-accent hover:underline shrink-0"
                                 >
                                   ↗
                                 </a>
                               )}
                             </div>
-                            <p className="text-[10px] text-ink-muted leading-snug mt-1 line-clamp-2">
-                              {t.reasoning}
+                            <p className="text-[11px] text-ink-muted leading-snug mt-1.5 line-clamp-3">
+                              {t.description}
                             </p>
                           </button>
                         );
@@ -825,18 +851,35 @@ export function Sidebar({
                   )}
                 </div>
 
-                <div className="overflow-hidden rounded-lg border border-rule bg-surface divide-y divide-rule">
-                  <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <p className={`${SIDEBAR_LABEL} px-0.5`}>Process settings</p>
+                <div className="overflow-visible rounded-lg border border-rule bg-surface divide-y divide-rule">
+                  <div className="group relative flex items-center justify-between gap-3 px-3 py-2.5">
+                    <div id="sidebar-subagents-desc" className="sr-only">
+                      Per-block lane models, stack chips, and prompt routing. Off = primary model only.
+                      Subagent models for focused sessions are set per block — open the Blocks tab, expand a block,
+                      and pick a model for its lane (or use primary).
+                    </div>
                     <div className="min-w-0 flex-1">
-                      <p className={SIDEBAR_LABEL}>Use subagents</p>
-                      <p className="mt-0.5 text-[10px] font-normal text-ink-muted leading-snug">
+                      <p className={`${SIDEBAR_CARD_PRIMARY} cursor-help`}>Use subagents</p>
+                    </div>
+                    <div
+                      role="tooltip"
+                      className={SIDEBAR_HELP_TOOLTIP}
+                      aria-hidden
+                    >
+                      <p className="mb-1.5">
                         Per-block lane models, stack chips, and prompt routing. Off = primary model only.
+                      </p>
+                      <p className="text-surface/80">
+                        Subagent models for focused sessions are set per block — open the Blocks tab, expand a block,
+                        and pick a model for its lane (or use primary).
                       </p>
                     </div>
                     <button
                       type="button"
                       role="switch"
                       aria-checked={config.useSubagents}
+                      aria-describedby="sidebar-subagents-desc"
                       onClick={() => onSetUseSubagents(!config.useSubagents)}
                       className={`relative h-7 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                         config.useSubagents
@@ -855,18 +898,27 @@ export function Sidebar({
                       />
                     </button>
                   </div>
-                  <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                  <div className="group relative flex items-center justify-between gap-3 px-3 py-2.5">
+                    <div id="sidebar-build-desc" className="sr-only">
+                      Focus on the product concept; let the agent propose and refine stack choices as you iterate. Off =
+                      lock picks in the UI before generating prompts.
+                    </div>
                     <div className="min-w-0 flex-1">
-                      <p className={SIDEBAR_LABEL}>Build as you go</p>
-                      <p className="mt-0.5 text-[10px] font-normal text-ink-muted leading-snug">
-                        Focus on the product concept; let the agent propose and refine stack choices as you iterate. Off
-                        = lock picks in the UI before generating prompts.
-                      </p>
+                      <p className={`${SIDEBAR_CARD_PRIMARY} cursor-help`}>Build as you go</p>
+                    </div>
+                    <div
+                      role="tooltip"
+                      className={SIDEBAR_HELP_TOOLTIP}
+                      aria-hidden
+                    >
+                      Focus on the product concept; let the agent propose and refine stack choices as you iterate. Off =
+                      lock picks in the UI before generating prompts.
                     </div>
                     <button
                       type="button"
                       role="switch"
                       aria-checked={config.buildAsYouGo}
+                      aria-describedby="sidebar-build-desc"
                       onClick={() => onSetBuildAsYouGo(!config.buildAsYouGo)}
                       className={`relative h-7 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                         config.buildAsYouGo ? 'border-ink bg-ink' : 'border-rule bg-surface-raised'
@@ -883,14 +935,46 @@ export function Sidebar({
                       />
                     </button>
                   </div>
+                  <div className="group relative flex items-center justify-between gap-3 px-3 py-2.5">
+                    <div id="sidebar-oss-desc" className="sr-only">
+                      Prefer free-to-use and open-source libraries, tools, and hosting in generated briefs. Off = no
+                      extra license constraint.
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`${SIDEBAR_CARD_PRIMARY} cursor-help`}>Free / OSS only</p>
+                    </div>
+                    <div
+                      role="tooltip"
+                      className={SIDEBAR_HELP_TOOLTIP}
+                      aria-hidden
+                    >
+                      Prefer free-to-use and open-source (OSS) dependencies, tools, and deployment paths in generated
+                      briefs. When off, commercial options are fine too.
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={config.preferOpenSourceOnly}
+                      aria-describedby="sidebar-oss-desc"
+                      onClick={() => onSetPreferOpenSourceOnly(!config.preferOpenSourceOnly)}
+                      className={`relative h-7 w-11 shrink-0 rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/25 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                        config.preferOpenSourceOnly
+                          ? 'border-ink bg-ink'
+                          : 'border-rule bg-surface-raised'
+                      }`}
+                    >
+                      <span className="sr-only">
+                        {config.preferOpenSourceOnly ? 'Free / OSS only on' : 'Free / OSS only off'}
+                      </span>
+                      <span
+                        className={`absolute top-1 left-1 block h-5 w-5 rounded-full bg-surface shadow-sm transition-transform duration-200 ease-out ${
+                          config.preferOpenSourceOnly ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                        aria-hidden
+                      />
+                    </button>
+                  </div>
                 </div>
-
-                {config.useSubagents ? (
-                  <p className="text-[10px] text-ink-muted leading-snug px-0.5">
-                    Subagent models for focused sessions are set per block — open the Blocks tab, expand a block,
-                    and pick a model for its lane (or use primary).
-                  </p>
-                ) : null}
               </div>
             )}
           </div>
@@ -899,10 +983,13 @@ export function Sidebar({
 
         {activePanel === 'project' && config.projectTypeId && (
           <div className="animate-fade-in min-w-0">
-            <SidebarPanelHeader label="Details" />
+            <SidebarPanelHeader
+              label="Details"
+              description="Name, description, and project-type fields that feed into your generated briefs."
+            />
             <div className="min-w-0">
-                <div className="min-w-0 w-full overflow-visible border border-rule border-b-0 bg-surface">
-                  <div className="min-w-0 px-3 py-2.5 border-b border-rule">
+                <div className="min-w-0 w-full overflow-visible bg-surface">
+                  <div className="min-w-0 px-3 py-2.5">
                     <label htmlFor="sidebar-project-name" className={SIDEBAR_FIELD_LABEL}>
                       Name
                     </label>
@@ -915,11 +1002,7 @@ export function Sidebar({
                       className={`w-full bg-transparent ${SIDEBAR_BODY} placeholder:text-ink-faint focus:outline-none`}
                     />
                   </div>
-                  <div
-                    className={`min-w-0 px-3 py-2.5 ${
-                      typeDetailFields.length > 0 ? 'border-b border-rule' : ''
-                    }`}
-                  >
+                  <div className="min-w-0 px-3 py-2.5">
                     <label htmlFor="sidebar-project-desc" className={SIDEBAR_FIELD_LABEL}>
                       Description
                     </label>
@@ -932,13 +1015,8 @@ export function Sidebar({
                       className={`w-full bg-transparent ${SIDEBAR_BODY} placeholder:text-ink-faint focus:outline-none resize-none`}
                     />
                   </div>
-                  {typeDetailFields.map((field, idx) => (
-                    <div
-                      key={field.id}
-                      className={`min-w-0 px-3 py-2.5 ${
-                        idx < typeDetailFields.length - 1 ? 'border-b border-rule' : ''
-                      }`}
-                    >
+                  {typeDetailFields.map((field) => (
+                    <div key={field.id} className="min-w-0 px-3 py-2.5">
                       <div className={SIDEBAR_FIELD_LABEL}>{field.label}</div>
                       {field.input === 'chips' && field.options ? (
                         <div
@@ -973,6 +1051,7 @@ export function Sidebar({
                         <CustomSelect
                           id={`sidebar-type-detail-${field.id}`}
                           size="md"
+                          variant="sidebar"
                           value={typeDetails[field.id] ?? ''}
                           onChange={(v) => onSetTypeDetail(field.id, v)}
                           options={field.options.map((opt) => ({
@@ -980,6 +1059,7 @@ export function Sidebar({
                             label: opt.label,
                           }))}
                           aria-label={field.label}
+                          triggerClassName="!border-rule/40 !bg-white/35 backdrop-blur-sm hover:!bg-white/50 rounded-lg"
                         />
                       ) : field.multiline ? (
                         <textarea
@@ -1008,7 +1088,11 @@ export function Sidebar({
         {/* ── BLOCKS (Weave-style grid + detail drawer) ── */}
         {activePanel === 'blocks' && config.projectTypeId && (
           <div className="animate-fade-in flex min-w-0 flex-col">
-            <SidebarPanelHeader label="Blocks" count={config.selectedBlockIds.length} />
+            <SidebarPanelHeader
+              label="Blocks"
+              description="Choose stack areas; expand a block to set technology, libraries, and lane models."
+              count={config.selectedBlockIds.length}
+            />
             <div className="shrink-0 border-b border-rule">
               <label htmlFor="sidebar-search" className="sr-only">
                 Search blocks
@@ -1047,7 +1131,7 @@ export function Sidebar({
                   group.blocks.length === 0 ? null : (
                     <div key={group.layerId}>
                       <p className={`mb-2 px-3 ${SIDEBAR_LABEL}`}>{group.label}</p>
-                      <div className="rounded-lg border border-rule bg-white divide-y divide-rule">
+                      <div className="flex flex-col gap-1">
                         {group.blocks.map((block) => (
                           <Fragment key={block.id}>
                             <SidebarBlockGridCard
@@ -1087,7 +1171,7 @@ export function Sidebar({
                         group.blocks.length === 0 ? null : (
                           <div key={`rec-${group.layerId}`}>
                             <p className={`mb-2 px-3 ${SIDEBAR_LABEL}`}>{group.label}</p>
-                            <div className="rounded-lg border border-rule bg-white divide-y divide-rule">
+                            <div className="flex flex-col gap-1">
                               {group.blocks.map((block) => (
                                 <Fragment key={block.id}>
                                   <SidebarBlockGridCard
@@ -1139,16 +1223,17 @@ export function Sidebar({
 
         {activePanel === 'integrations' && config.projectTypeId && visibleIntegrations.length > 0 && (
               <div className="animate-fade-in flex min-w-0 flex-col">
-                <SidebarPanelHeader label="Integrations" count={config.selectedIntegrationIds.length} />
+                <SidebarPanelHeader
+                  label="Integrations"
+                  description="Suggested for your project type and description. Skills align with the skills.sh ecosystem."
+                  count={config.selectedIntegrationIds.length}
+                />
                 <div className="space-y-2 px-3 pb-4 pt-2">
-                <p className="text-[10px] font-normal text-ink-muted leading-snug px-0.5">
-                  Suggested for your project type and description. Skills align with the skills.sh ecosystem.
-                </p>
-                <div className="border border-rule bg-surface overflow-hidden">
+                <div className="overflow-hidden rounded-lg bg-white">
                   <div
                     role="tablist"
                     aria-label="Integration categories"
-                    className="flex border-b border-rule bg-surface-raised"
+                    className="flex border-b border-rule bg-white"
                   >
                     {INTEGRATION_CATEGORY_ORDER.map((cat) => {
                       const items = integrationsByCategory.get(cat) ?? [];
@@ -1166,16 +1251,16 @@ export function Sidebar({
                           id={`integration-tab-${cat}`}
                           aria-controls={`integration-panel-${cat}`}
                           onClick={() => setIntegrationTab(cat)}
-                          className={`flex-1 min-w-0 px-2 py-1 text-[6px] font-medium uppercase tracking-[0.04em] leading-none transition-colors border-b -mb-px ${
+                          className={`flex-1 min-w-0 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] leading-tight transition-colors border-b -mb-px ${
                             isActive
                               ? 'text-ink border-ink bg-surface'
                               : 'text-ink-muted border-transparent hover:text-ink-secondary hover:bg-surface/80'
                           }`}
                         >
-                          <span className="block truncate text-center font-sans">
+                          <span className="block truncate text-center font-sans text-[10px]">
                             {INTEGRATION_CATEGORY_LABELS[cat]}
                             {selectedHere > 0 ? (
-                              <span className="font-mono font-normal text-[6px] normal-case tracking-normal text-accent">
+                              <span className="font-mono font-normal text-[10px] normal-case tracking-normal text-accent">
                                 {' '}
                                 {selectedHere}
                               </span>
@@ -1189,6 +1274,7 @@ export function Sidebar({
                     role="tabpanel"
                     id={`integration-panel-${integrationTab}`}
                     aria-labelledby={`integration-tab-${integrationTab}`}
+                    className="flex flex-col gap-1 px-2 py-2"
                   >
                     {(integrationsByCategory.get(integrationTab) ?? []).map((item) => {
                       const isChosen = config.selectedIntegrationIds.includes(item.id);
@@ -1198,39 +1284,44 @@ export function Sidebar({
                           type="button"
                           aria-pressed={isChosen}
                           onClick={() => onToggleIntegration(item.id)}
-                          className={`group relative flex w-full items-start gap-2 text-left px-2.5 py-1.5 border-b border-rule last:border-b-0 transition-colors ${
-                            isChosen ? 'bg-surface-raised' : 'hover:bg-surface-raised'
+                          className={`group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                            isChosen ? 'bg-surface-raised' : 'hover:bg-black/[0.04]'
                           }`}
                         >
+                          <IntegrationBrandIcon
+                            integrationId={item.id}
+                            name={item.name}
+                            category={item.category}
+                          />
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className={`text-[10px] font-semibold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>
-                                {item.name}
-                              </span>
-                            </div>
-                            <p className={`text-[10px] leading-snug mt-0.5 line-clamp-2 ${
-                              isChosen ? 'text-ink-muted' : 'text-ink-faint'
-                            }`}>
+                            <p className={SIDEBAR_CARD_PRIMARY}>{item.name}</p>
+                            <p className="mt-0.5 text-[10px] leading-snug text-ink-muted line-clamp-2">
                               {item.description}
                             </p>
                             {item.installHint ? (
-                              <p className="text-[10px] text-ink-faint mt-1 font-mono leading-tight">
+                              <p className="mt-1 font-mono text-[10px] leading-tight text-ink-faint line-clamp-1">
                                 {item.installHint}
                               </p>
                             ) : null}
                           </div>
-                          <div
-                            className={`mt-px h-2.5 w-2.5 shrink-0 border flex items-center justify-center transition-colors ${
-                              isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
+                          <span
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+                              isChosen
+                                ? 'bg-surface-raised text-ink'
+                                : 'bg-transparent text-ink-muted group-hover:bg-surface-raised'
                             }`}
                             aria-hidden="true"
                           >
                             {isChosen ? (
-                              <svg className="h-1.5 w-1.5 text-surface" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} aria-hidden>
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
-                            ) : null}
-                          </div>
+                            ) : (
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                                <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                              </svg>
+                            )}
+                          </span>
                         </button>
                       );
                     })}
@@ -1390,11 +1481,11 @@ function IncludedBlockExpandedPanel({
             <div className="px-2.5 py-1.5">
               <span className={`block ${SIDEBAR_LABEL}`}>Libraries</span>
             </div>
-            <div className="px-2.5 pb-2 space-y-2">
+            <div className="space-y-3 px-2.5 pb-2">
               {categories.map((cat) => (
                 <div key={cat}>
-                  <p className={`mb-1 ${SIDEBAR_LABEL}`}>{cat}</p>
-                  <div className="flex flex-wrap gap-1">
+                  <p className={`mb-1.5 ${SIDEBAR_LABEL}`}>{cat}</p>
+                  <div className="flex flex-col gap-1">
                     {libs.filter((l) => l.category === cat).map((lib) => (
                       <LibraryChip
                         key={lib.id}
@@ -1402,9 +1493,10 @@ function IncludedBlockExpandedPanel({
                         isActive={config.selectedLibraryIds.includes(lib.id)}
                         onToggle={() => onToggleLibrary(lib.id)}
                         size="sm"
-                        variant="sidebar"
+                        variant="list"
                         idPrefix={`sidebar-${block.id}`}
                         stopPropagationOnClick
+                        tooltipPlacement="below"
                       />
                     ))}
                   </div>

@@ -27,6 +27,7 @@ function App() {
     setTypeDetail,
     setModel,
     setBuildAsYouGo,
+    setPreferOpenSourceOnly,
     setUseSubagents,
     setSubagentModel,
     setTool,
@@ -201,6 +202,7 @@ function App() {
               onSetTypeDetail={setTypeDetail}
               onSetModel={setModel}
               onSetBuildAsYouGo={setBuildAsYouGo}
+              onSetPreferOpenSourceOnly={setPreferOpenSourceOnly}
               onSetUseSubagents={setUseSubagents}
               onSetSubagentModel={setSubagentModel}
               onSetTool={setTool}

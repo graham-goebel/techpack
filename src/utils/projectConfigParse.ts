@@ -67,6 +67,9 @@ export function parseProjectConfig(data: unknown, requireProjectType = false): P
 
   const buildAsYouGo = typeof o.buildAsYouGo === 'boolean' ? o.buildAsYouGo : false;
 
+  const preferOpenSourceOnly =
+    typeof o.preferOpenSourceOnly === 'boolean' ? o.preferOpenSourceOnly : false;
+
   return {
     id: o.id,
     name: typeof o.name === 'string' ? o.name : '',
@@ -77,6 +80,7 @@ export function parseProjectConfig(data: unknown, requireProjectType = false): P
     typeDetails,
     buildAsYouGo,
     useSubagents,
+    preferOpenSourceOnly,
     subagentModels,
     selectedModelId: typeof o.selectedModelId === 'string' ? o.selectedModelId : '',
     selectedToolIds: Array.isArray(o.selectedToolIds)

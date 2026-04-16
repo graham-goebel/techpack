@@ -29,6 +29,7 @@ function createEmptyConfig(): ProjectConfig {
     resources: [],
     buildAsYouGo: false,
     useSubagents: true,
+    preferOpenSourceOnly: false,
     subagentModels: {},
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -91,6 +92,7 @@ export function useProject() {
           resources: [],
           buildAsYouGo: false,
           useSubagents: true,
+          preferOpenSourceOnly: false,
           subagentModels: {},
           onboardingCompleted: undefined,
           updatedAt: Date.now(),
@@ -137,6 +139,7 @@ export function useProject() {
         resources: [],
         buildAsYouGo: false,
         useSubagents: true,
+        preferOpenSourceOnly: false,
         subagentModels: {},
         onboardingCompleted: false,
         updatedAt: Date.now(),
@@ -228,6 +231,14 @@ export function useProject() {
     setConfig((prev) => ({
       ...prev,
       buildAsYouGo: value,
+      updatedAt: Date.now(),
+    }));
+  }, []);
+
+  const setPreferOpenSourceOnly = useCallback((value: boolean) => {
+    setConfig((prev) => ({
+      ...prev,
+      preferOpenSourceOnly: value,
       updatedAt: Date.now(),
     }));
   }, []);
@@ -387,6 +398,7 @@ export function useProject() {
     setModel,
     setUseSubagents,
     setBuildAsYouGo,
+    setPreferOpenSourceOnly,
     setSubagentModel,
     setTool,
     toggleLibrary,

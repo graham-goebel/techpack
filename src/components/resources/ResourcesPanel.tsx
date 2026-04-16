@@ -86,7 +86,13 @@ export function ResourcesPanel({
       }
     >
       <div className={isSidebar ? 'min-w-0 max-w-full' : undefined}>
-        <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">
+        <p
+          className={
+            isSidebar
+              ? 'mb-2 text-[12px] font-semibold tracking-normal text-ink-secondary'
+              : 'mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted'
+          }
+        >
           Files
         </p>
         {isSidebar ? (
@@ -130,7 +136,7 @@ export function ResourcesPanel({
             handleFiles(e.dataTransfer.files);
           }}
           onClick={() => fileInputRef.current?.click()}
-          className={`rounded-lg border-2 border-dashed text-center cursor-pointer transition-colors box-border min-w-0 max-w-full ${
+          className={`rounded-lg border border-dashed text-center cursor-pointer transition-colors box-border min-w-0 max-w-full ${
             isSidebar ? 'px-2 py-5' : 'px-6 py-12'
           } ${
             dragActive
@@ -166,7 +172,13 @@ export function ResourcesPanel({
       </div>
 
       <div className={isSidebar ? 'min-w-0 max-w-full' : undefined}>
-        <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
+        <p
+          className={
+            isSidebar
+              ? 'mb-2 text-[12px] font-semibold tracking-normal text-ink-secondary'
+              : 'mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-ink-muted'
+          }
+        >
           Links
         </p>
         <form
@@ -178,7 +190,13 @@ export function ResourcesPanel({
           }
         >
           <div className="flex-1 min-w-0 max-w-full space-y-1">
-            <label className="text-[10px] font-bold text-ink-faint uppercase tracking-wider block">
+            <label
+              className={
+                isSidebar
+                  ? 'block text-[8px] font-semibold uppercase tracking-[0.1em] text-ink-secondary leading-snug'
+                  : 'block text-[10px] font-bold text-ink-faint uppercase tracking-wider'
+              }
+            >
               Label
             </label>
             <input
@@ -190,25 +208,53 @@ export function ResourcesPanel({
             />
           </div>
           <div className="flex-[2] min-w-0 max-w-full space-y-1">
-            <label className="text-[10px] font-bold text-ink-faint uppercase tracking-wider block">
+            <label
+              className={
+                isSidebar
+                  ? 'block text-[8px] font-semibold uppercase tracking-[0.1em] text-ink-secondary leading-snug'
+                  : 'block text-[10px] font-bold text-ink-faint uppercase tracking-wider'
+              }
+            >
               URL
             </label>
-            <input
-              type="url"
-              value={urlValue}
-              onChange={(e) => setUrlValue(e.target.value)}
-              placeholder="https://…"
-              className="w-full min-w-0 max-w-full border border-rule bg-surface px-2.5 py-1.5 text-[10px] text-ink placeholder:text-ink-faint focus:outline-none focus:border-ink/30 box-border"
-            />
+            {isSidebar ? (
+              <div className="relative">
+                <input
+                  type="url"
+                  value={urlValue}
+                  onChange={(e) => setUrlValue(e.target.value)}
+                  placeholder="https://…"
+                  className="w-full min-w-0 max-w-full border border-rule bg-surface py-1.5 pl-2.5 pr-10 text-[10px] text-ink placeholder:text-ink-faint focus:outline-none focus:border-ink/30 box-border"
+                />
+                <button
+                  type="submit"
+                  aria-label="Add link"
+                  title="Add link"
+                  className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <input
+                type="url"
+                value={urlValue}
+                onChange={(e) => setUrlValue(e.target.value)}
+                placeholder="https://…"
+                className="w-full min-w-0 max-w-full border border-rule bg-surface px-2.5 py-1.5 text-[10px] text-ink placeholder:text-ink-faint focus:outline-none focus:border-ink/30 box-border"
+              />
+            )}
           </div>
-          <button
-            type="submit"
-            className={`border border-rule bg-surface px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-ink-secondary transition-colors hover:border-rule-strong hover:bg-surface-raised hover:text-ink box-border ${
-              isSidebar ? 'w-full max-w-full' : 'shrink-0 sm:mb-px'
-            }`}
-          >
-            Add link
-          </button>
+          {!isSidebar ? (
+            <button
+              type="submit"
+              className="shrink-0 border border-rule bg-surface px-4 py-2 text-[10px] font-semibold uppercase tracking-wide text-ink-secondary transition-colors hover:border-rule-strong hover:bg-surface-raised hover:text-ink box-border sm:mb-px"
+            >
+              Add link
+            </button>
+          ) : null}
         </form>
       </div>
 
@@ -217,7 +263,7 @@ export function ResourcesPanel({
           Your resources ({resources.length})
         </p>
         {resources.length === 0 ? (
-          <p className="text-[10px] text-ink-faint py-6 text-center border border-rule rounded-lg bg-surface-raised/50 break-words px-2">
+          <p className="text-[10px] text-ink-faint py-6 text-center border border-rule rounded-lg break-words px-2">
             No resources yet. Add links or drop files above.
           </p>
         ) : (

@@ -15,6 +15,8 @@ export type CustomSelectOption = {
   description?: string;
   /** When set (e.g. AI tool id), shows a brand glyph instead of the selection dot */
   iconKey?: string;
+  /** Small pill next to the label (closed trigger + list row), e.g. “default” */
+  tag?: string;
 };
 
 export type CustomSelectProps = {
@@ -29,7 +31,7 @@ export type CustomSelectProps = {
   placeholder?: string;
   size?: 'sm' | 'md';
   /**
-   * `sidebar` — match AI & tooling tool list: 10px semibold labels, compact rows (use with `size="md"` in the rail).
+   * `sidebar` — match Overview rail fields: xs semibold labels, py-4 rows (use with `size="md"` in the rail).
    */
   variant?: 'default' | 'sidebar';
   className?: string;
@@ -96,13 +98,16 @@ export function CustomSelect({
     size === 'sm'
       ? 'px-2 py-1.5 text-[10px] rounded-md min-h-[34px]'
       : sidebarMd
-        ? 'px-3 py-2.5 text-[10px] font-semibold leading-tight rounded-md min-h-[44px]'
+        ? 'px-3 py-4 text-[9px] font-normal leading-tight rounded-md min-h-[4.25rem]'
         : 'px-3 py-2 text-sm rounded-md min-h-[42px]';
 
   const optionText =
-    size === 'sm' ? 'text-[10px]' : sidebarMd ? 'text-[10px] font-semibold leading-tight' : 'text-sm';
+    size === 'sm' ? 'text-[10px]' : sidebarMd ? 'text-[9px] font-medium leading-tight' : 'text-sm';
 
-  const triggerLabelWeight = sidebarMd ? 'font-semibold' : 'font-medium';
+  const triggerLabelWeight = 'font-medium';
+
+  const tagClass =
+    'shrink-0 rounded border border-rule bg-surface-raised px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-ink-muted';
 
   return (
     <div ref={containerRef} className={`relative w-full ${className}`}>
@@ -142,7 +147,10 @@ export function CustomSelect({
               className={size === 'sm' ? 'h-4 w-4 text-ink' : 'h-5 w-5 text-ink'}
             />
           ) : null}
-          <span className={`min-w-0 flex-1 truncate text-ink ${triggerLabelWeight}`}>{displayLabel}</span>
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
+            <span className={`min-w-0 truncate text-ink ${triggerLabelWeight}`}>{displayLabel}</span>
+            {selectedOption?.tag ? <span className={tagClass}>{selectedOption.tag}</span> : null}
+          </span>
         </span>
         <svg
           className={`h-4 w-4 shrink-0 text-ink-muted transition-transform duration-150 ${
@@ -175,7 +183,7 @@ export function CustomSelect({
               size === 'sm'
                 ? 'px-2 py-1.5 gap-1.5'
                 : sidebarMd
-                  ? 'px-3 py-2.5 gap-2'
+                  ? 'px-3 py-4 gap-2'
                   : 'px-3 py-2 gap-2';
             const dotMt = size === 'sm' ? 'mt-1' : sidebarMd ? 'mt-0.5' : 'mt-1.5';
             const dotSz = size === 'sm' ? 'h-1.5 w-1.5' : 'h-2 w-2';
@@ -212,10 +220,17 @@ export function CustomSelect({
                   />
                 )}
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-snug">
-                  <span className={isSelected ? 'text-ink' : 'text-ink-secondary'}>{opt.label}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className={`min-w-0 truncate ${isSelected ? 'text-ink' : 'text-ink-secondary'}`}>
+                      {opt.label}
+                    </span>
+                    {opt.tag ? <span className={tagClass}>{opt.tag}</span> : null}
+                  </span>
                   {opt.description ? (
                     <span
-                      className={`line-clamp-3 text-[10px] font-normal leading-snug ${
+                      className={`line-clamp-3 font-normal leading-snug ${
+                        sidebarMd ? 'text-[11px]' : 'text-[10px]'
+                      } ${
                         isSelected ? 'text-ink-muted' : 'text-ink-faint'
                       }`}
                     >

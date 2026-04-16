@@ -11,6 +11,7 @@ import {
   type IntegrationItem,
 } from '../../data/integrations';
 import { toolRecommendations } from '../../data/models';
+import { IntegrationBrandIcon } from '../icons/IntegrationBrandIcon';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
 import { ResourcesPanel } from '../resources/ResourcesPanel';
@@ -502,12 +503,18 @@ export function ProjectOnboarding({
                             key={item.id}
                             type="button"
                             onClick={() => onToggleIntegration(item.id)}
-                            className={`w-full text-left px-4 py-3 flex gap-3 transition-colors ${
+                            className={`w-full text-left px-4 py-3 flex gap-3 items-start transition-colors ${
                               isChosen ? 'bg-surface-raised' : 'hover:bg-surface-raised/60'
                             }`}
                           >
+                            <IntegrationBrandIcon
+                              integrationId={item.id}
+                              name={item.name}
+                              category={item.category}
+                              className="!h-9 !w-9 [&_svg]:!h-5 [&_svg]:!w-5"
+                            />
                             <div
-                              className={`mt-0.5 h-4 w-4 shrink-0 border flex items-center justify-center ${
+                              className={`mt-1 h-4 w-4 shrink-0 border flex items-center justify-center ${
                                 isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
                               }`}
                             >

@@ -153,6 +153,15 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
     sections.push('');
   }
 
+  if (config.preferOpenSourceOnly) {
+    sections.push('## Stack preferences');
+    sections.push('');
+    sections.push(
+      '**Free / open source:** Prefer dependencies, tools, and deployment paths that are **open source** (OSI-approved or widely accepted OSS licenses) and/or **free to use** for this project’s scale. When a proprietary or paid service is materially better, note the tradeoff and suggest an OSS alternative if one exists. Avoid unnecessary vendor lock-in.',
+    );
+    sections.push('');
+  }
+
   pushModelToolsAndSubagentSections(sections, config, models, tools);
 
   // Description

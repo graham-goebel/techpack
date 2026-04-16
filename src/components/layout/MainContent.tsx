@@ -228,19 +228,17 @@ function StackOptionalAddonsPanel({
   return (
     <div className="border-t border-rule bg-white">
       <div className="px-5 py-5">
-        <p className="struct-label mb-1.5">Optional skills & add-ons</p>
-        <p className="mb-3 text-[10px] leading-relaxed text-ink-muted">
+        <p className="mb-1.5 text-[10px] font-mono font-medium uppercase tracking-[0.08em] text-ink-secondary">
+          Optional skills & add-ons
+        </p>
+        <p className="mb-4 text-[10px] leading-relaxed text-ink-muted">
           Skills, MCPs, APIs, and catalog libraries match the Integrations sidebar. Packages are tied to this
           block. All toggles stay in sync with your prompt.
         </p>
 
         {visibleTabs.length > 1 ? (
-          <div className="-mx-5 mb-3 overflow-x-auto px-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div
-              role="tablist"
-              aria-label="Add-on categories"
-              className="flex w-max min-w-full max-w-full gap-1 border-b border-rule"
-            >
+          <div className="-mx-5 mb-4 overflow-x-auto px-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div role="tablist" aria-label="Add-on categories" className="flex w-max min-w-full max-w-full flex-wrap gap-1.5">
               {visibleTabs.map((tab) => {
                 const n = selectedInTab(tab);
                 const isActive = tab === activeTab;
@@ -253,20 +251,20 @@ function StackOptionalAddonsPanel({
                     id={`stack-addon-tab-${block.id}-${tab}`}
                     aria-controls={`stack-addon-panel-${block.id}`}
                     onClick={() => setAddonTab(tab)}
-                    className={`relative -mb-px min-w-0 shrink-0 border-b-2 px-2.5 py-2 text-left text-[11px] font-semibold leading-none tracking-tight transition-[color,border-color] focus:outline-none focus-visible:z-[1] focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:px-3 ${
+                    className={`min-w-0 shrink-0 rounded-lg border px-3 py-2 text-left text-xs font-semibold leading-tight tracking-tight transition-colors focus:outline-none focus-visible:z-[1] focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
                       isActive
-                        ? 'border-ink text-ink'
-                        : 'border-transparent text-ink-muted hover:border-ink/25 hover:text-ink-secondary'
+                        ? 'border-ink/20 bg-surface-raised text-ink shadow-sm'
+                        : 'border-rule bg-white text-ink-muted hover:bg-black/[0.03] hover:text-ink-secondary'
                     }`}
                   >
-                    <span className="flex items-center gap-1 whitespace-nowrap">
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
                       <span>{stackAddonTabLabel(tab)}</span>
                       {n > 0 ? (
                         <span
-                          className={`rounded-sm px-1 py-px font-mono text-[9px] font-semibold tabular-nums ${
+                          className={`rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums ${
                             isActive
-                              ? 'bg-ink/[0.08] text-ink'
-                              : 'bg-rule/80 text-ink-muted'
+                              ? 'border-ink/15 bg-white text-ink'
+                              : 'border-transparent bg-surface-raised text-ink-muted'
                           }`}
                         >
                           {n}
@@ -301,7 +299,7 @@ function StackOptionalAddonsPanel({
                     <LibraryCategoryLeadingIcon category={cat} />
                     {cat}
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {libs
                       .filter((l) => l.category === cat)
                       .map((lib) => (
@@ -311,7 +309,8 @@ function StackOptionalAddonsPanel({
                           isActive={config.selectedLibraryIds.includes(lib.id)}
                           onToggle={() => onToggleLibrary(lib.id)}
                           size="md"
-                          variant="stack"
+                          variant="list"
+                          listTooltipMode="stack"
                           idPrefix={`stack-${block.id}`}
                           tooltipPlacement="below"
                         />
@@ -321,7 +320,7 @@ function StackOptionalAddonsPanel({
               ))}
             </div>
           ) : (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {integrationItems.map((item) => (
                 <IntegrationChip
                   key={item.id}
@@ -330,6 +329,8 @@ function StackOptionalAddonsPanel({
                   onToggle={() => onToggleIntegration(item.id)}
                   idPrefix={`stack-${block.id}`}
                   tooltipPlacement="below"
+                  variant="list"
+                  listTooltipMode="stack"
                 />
               ))}
             </div>
@@ -379,6 +380,12 @@ export function MainContent({
     if (!config.projectTypeId) return '';
     return generatePrompt(config, tier);
   }, [config, tier]);
+
+  const stackWorkspaceEyebrow = useMemo(() => {
+    const name = config.name.trim() || 'Untitled';
+    const typeName = projectTypes.find((t) => t.id === config.projectTypeId)?.name ?? 'Project';
+    return `${name} · ${typeName}`;
+  }, [config.name, config.projectTypeId]);
 
   const handleCopy = async () => {
     if (!prompt) return;
@@ -505,10 +512,15 @@ export function MainContent({
           >
             {mainTab === 'architecture' && (
               <div className="mx-auto min-w-0 w-full max-w-[52rem] px-0 py-4 sm:py-5">
-                  <header className="shrink-0 border-b border-rule pb-4">
+                  <header className="shrink-0 pb-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                       <div className="min-w-0 space-y-2">
-                        <p className="struct-label">Stack · workspace</p>
+                        <p
+                          className="struct-label truncate min-w-0 max-w-full"
+                          title={stackWorkspaceEyebrow}
+                        >
+                          {stackWorkspaceEyebrow}
+                        </p>
                         <h2 className="text-[clamp(1.625rem,3.5vw,2.125rem)] font-semibold leading-[1.08] tracking-[-0.035em] text-ink">
                           Project Stack
                         </h2>
@@ -660,7 +672,7 @@ export function MainContent({
                     aria-selected={mainTab === tab.id}
                     id={`main-tab-${tab.id}`}
                     onClick={() => setMainTab(tab.id)}
-                    className={`min-w-0 shrink px-1.5 py-1 text-[10px] font-medium tracking-tight transition-colors sm:px-2 sm:py-1 ${
+                    className={`min-w-0 shrink px-3 py-1 text-[8px] font-medium tracking-tight transition-colors sm:px-4 sm:py-1 ${
                       i > 0 ? 'border-l border-rule' : ''
                     } ${
                       mainTab === tab.id
@@ -737,7 +749,7 @@ function StackBlockRow({
           className="flex-1 min-w-0 text-left"
         >
           <span
-            className={`text-[18px] font-medium tracking-tight ${
+            className={`block pt-0.5 text-[18px] font-medium tracking-tight ${
               isSelected || isRequired ? 'text-ink' : 'text-neutral-400'
             }`}
           >
@@ -789,7 +801,7 @@ function StackBlockRow({
       </div>
 
       {isExpanded && isSelected && (
-        <div className="animate-fade-in border-t border-rule bg-white">
+        <div className="animate-fade-in bg-white">
           <div
             className={`flex flex-col divide-y divide-rule bg-white lg:flex-row lg:divide-y-0 ${
               SHOW_STACK_BLOCK_EXPLAINER ? 'lg:divide-x' : ''
@@ -853,80 +865,94 @@ function StackBlockRow({
             ) : null}
 
             {blockOptions.length > 0 ? (
-              <div
-                className={`order-2 min-w-0 flex-1 px-5 py-5 lg:order-1 lg:shrink-0 ${
-                  SHOW_STACK_BLOCK_EXPLAINER ? 'lg:max-w-md xl:max-w-lg' : ''
-                }`}
-              >
-                <p
-                  className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-secondary"
-                  id={`stack-tech-label-${block.id}`}
-                >
-                  Technology
-                </p>
-
-                <CustomSelect
-                  id={`stack-tech-select-${block.id}`}
-                  value={chosenOptionId && blockOptions.some((o) => o.id === chosenOptionId) ? chosenOptionId : ''}
-                  onChange={(v) => onSetTechChoice(block.id, v)}
-                  options={blockOptions.map((o) => ({
-                    value: o.id,
-                    label: o.isDefault ? `${o.name} (default)` : o.name,
-                    description: o.description,
-                  }))}
-                  placeholder="Select technology…"
-                  size="md"
-                  variant="sidebar"
-                  aria-labelledby={`stack-tech-label-${block.id}`}
-                  className="w-full"
-                  listClassName="max-h-[min(22rem,55vh)]"
-                  triggerClassName="!border-rule/40 !bg-white/80 backdrop-blur-sm hover:!bg-white rounded-lg"
-                  listFooter={({ close }) => (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setComparingBlockId(isComparing ? null : block.id);
-                        close();
-                      }}
-                      className="flex w-full items-center justify-center gap-1 rounded-sm px-2 py-1 text-[10px] font-medium normal-case tracking-normal text-ink-muted transition-colors hover:bg-white hover:text-ink"
+              <div className="order-2 min-w-0 flex-1 px-5 py-5 lg:order-1 lg:min-w-0">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8 lg:items-start">
+                  <div className="min-w-0">
+                    <p
+                      className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-secondary"
+                      id={`stack-tech-label-${block.id}`}
                     >
-                      <svg
-                        className="h-2.5 w-2.5 shrink-0 opacity-70"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                        aria-hidden
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01"
-                        />
-                      </svg>
-                      {isComparing ? 'Hide comparison' : 'Help me decide'}
-                    </button>
-                  )}
-                />
+                      Technology
+                    </p>
 
-                {chosenOption && !isComparing ? (
-                  <div className="mt-3">
-                    <p className="mb-1.5 text-[10px] leading-relaxed text-ink-secondary">{chosenOption.description}</p>
-                    {chosenOption.pros.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {chosenOption.pros.map((pro, i) => (
-                          <span
-                            key={i}
-                            className="rounded-sm border border-green-700 bg-transparent px-1.5 py-0.5 font-mono text-[10px] leading-snug text-green-900"
+                    <CustomSelect
+                      id={`stack-tech-select-${block.id}`}
+                      value={chosenOptionId && blockOptions.some((o) => o.id === chosenOptionId) ? chosenOptionId : ''}
+                      onChange={(v) => onSetTechChoice(block.id, v)}
+                      options={blockOptions.map((o) => ({
+                        value: o.id,
+                        label: o.name,
+                        tag: o.isDefault ? 'default' : undefined,
+                        description: o.description,
+                      }))}
+                      placeholder="Select technology…"
+                      size="md"
+                      variant="sidebar"
+                      aria-labelledby={`stack-tech-label-${block.id}`}
+                      className="w-full"
+                      listClassName="max-h-[min(22rem,55vh)]"
+                      triggerClassName="!border-rule/40 !bg-white/80 backdrop-blur-sm hover:!bg-white rounded-lg !py-2.5 !min-h-[44px]"
+                      listFooter={({ close }) => (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setComparingBlockId(isComparing ? null : block.id);
+                            close();
+                          }}
+                          className="flex w-full items-center justify-center gap-1 rounded-sm px-2 py-1 text-[10px] font-medium normal-case tracking-normal text-ink-muted transition-colors hover:bg-white hover:text-ink"
+                        >
+                          <svg
+                            className="h-2.5 w-2.5 shrink-0 opacity-70"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            aria-hidden
                           >
-                            {pro}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01"
+                            />
+                          </svg>
+                          {isComparing ? 'Hide comparison' : 'Help me decide'}
+                        </button>
+                      )}
+                    />
                   </div>
-                ) : null}
+
+                  <div className="min-w-0 lg:border-l lg:border-rule lg:pl-8">
+                    {chosenOption && !isComparing ? (
+                      chosenOption.pros.length > 0 ? (
+                        <>
+                          <p
+                            className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-secondary"
+                            id={`stack-why-tool-label-${block.id}`}
+                          >
+                            Why this tool
+                          </p>
+                          <ul
+                            className="list-disc space-y-1 pl-4 text-[10px] leading-snug text-green-900 marker:text-green-800"
+                            aria-labelledby={`stack-why-tool-label-${block.id}`}
+                          >
+                            {chosenOption.pros.map((pro, i) => (
+                              <li key={i}>{pro}</li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null
+                    ) : isComparing ? (
+                      <p className="text-[10px] leading-relaxed text-ink-faint lg:pt-1">
+                        Compare options in the list below, then pick one from the Technology menu.
+                      </p>
+                    ) : (
+                      <p className="text-[10px] leading-relaxed text-ink-faint lg:pt-1">
+                        Select a technology — full descriptions are in the menu; tags show here when available.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : null}
           </div>
@@ -964,27 +990,21 @@ function StackBlockRow({
                       ) : null}
                     </div>
                     <p className="mb-1.5 ml-[18px] text-[10px] leading-relaxed text-ink-muted">{option.description}</p>
-                    <div className="ml-[18px] flex flex-wrap gap-x-4 gap-y-1">
-                      <div className="flex flex-wrap gap-1">
-                        {option.pros.map((pro, i) => (
-                          <span
-                            key={i}
-                            className="border border-green-700 bg-transparent px-1 py-px text-[10px] text-green-900"
-                          >
-                            + {pro}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {option.cons.map((con, i) => (
-                          <span
-                            key={i}
-                            className="text-[10px] text-neutral-500 bg-neutral-50 border border-neutral-100 px-1 py-px"
-                          >
-                            − {con}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="ml-[18px] flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-1">
+                      {option.pros.length > 0 ? (
+                        <ul className="list-disc space-y-0.5 pl-3.5 text-[10px] leading-snug text-green-900 marker:text-green-800">
+                          {option.pros.map((pro, i) => (
+                            <li key={i}>{pro}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {option.cons.length > 0 ? (
+                        <ul className="list-disc space-y-0.5 pl-3.5 text-[10px] leading-snug text-neutral-600 marker:text-neutral-400">
+                          {option.cons.map((con, i) => (
+                            <li key={i}>{con}</li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                   </button>
                 );

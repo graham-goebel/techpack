@@ -118,6 +118,11 @@ export interface ProjectConfig {
    */
   useSubagents: boolean;
   /**
+   * When true, generated prompts steer toward free-to-use and/or open-source (OSS) libraries,
+   * tools, and hosting; prefer permissive licenses and self-hostable options where practical.
+   */
+  preferOpenSourceOnly: boolean;
+  /**
    * Optional per-lane model overrides for subagent-style routing (lanes in SUBAGENT_LANES).
    * Set from each block’s expanded panel in the sidebar; blocks in the same lane share one override.
    * Omitted lane or empty string → use primary selectedModelId in prompts.
