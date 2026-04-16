@@ -31,7 +31,7 @@ export function PromptsHomePage({
   const typeMeta = (id: string) => projectTypes.find((t) => t.id === id);
 
   return (
-    <div className="min-h-screen overflow-y-auto bg-surface [scrollbar-gutter:stable]">
+    <div className="min-h-screen overflow-y-auto bg-surface">
       <button
         type="button"
         onClick={onNewPrompt}
@@ -44,36 +44,35 @@ export function PromptsHomePage({
       <div>
         <section
           aria-label="Introduction"
-          className="border-b border-dashed border-rule-strong/70 bg-surface"
+          className="flex min-h-[calc(5*var(--geist-grid-major))] flex-col border-b border-dashed border-rule-strong/70 geist-grid geist-grid--field sm:min-h-[calc(6*var(--geist-grid-major))]"
         >
-          <div className="mx-auto max-w-6xl px-6 py-7 sm:py-9">
-            <div className="mb-6 pr-16 sm:pr-0">
-              <p className="struct-label mb-1.5">Tech pack · 001</p>
-              <h1 className="text-[32px] font-semibold leading-[1.06] tracking-[-0.03em] text-ink sm:text-[40px]">
+          <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center py-[var(--geist-grid-major)] pl-6 pr-0">
+            <div>
+              <p className="struct-label mb-1.5">Prompt to product</p>
+              <h1 className="mb-4 text-[clamp(2.75rem,11vw,6rem)] font-semibold leading-[1.02] tracking-[-0.035em] text-ink sm:mb-5">
                 Tech Packs
               </h1>
             </div>
             <p className="max-w-xl text-sm leading-snug text-ink-muted">
-              A tech pack is a saved blueprint for a project: what you&apos;re building, which stack blocks and add-ons are
-              in scope, and a generated prompt you can paste into an AI or your docs. Packs live only in this browser and
-              update as you work. Open a saved pack below to continue, or use New prompt to start from scratch.
+              A tech pack is a visual prompt–requirements document builder: understand your stack, tune blocks and add-ons,
+              and shape a generated prompt that fits what you&apos;re building.
             </p>
           </div>
         </section>
 
         {/* Projects: coarse grid field; cards read as occupying cells */}
-        <section aria-label="Saved prompts" className="geist-grid geist-grid--field min-h-[min(50vh,28rem)]">
-          <div className="w-full px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
-            <h2 className="struct-label mb-6">
-              Saved — <span className="tabular-nums">{savedPrompts.length}</span>
+        <section aria-label="My packs" className="geist-grid geist-grid--field min-h-[min(50vh,28rem)]">
+          <div className="w-full pb-12 sm:pb-14">
+            <h2 className="struct-label flex h-[var(--geist-grid-major)] items-center pl-6 pr-0 sm:pl-6 lg:pl-8">
+              My Packs — <span className="tabular-nums">{savedPrompts.length}</span>
             </h2>
             {savedPrompts.length === 0 ? (
-              <p className="border border-dashed border-rule-strong bg-surface px-5 py-10 text-center text-sm leading-relaxed text-ink-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] outline outline-1 outline-dotted outline-black/[0.06]">
+              <p className="ml-6 mr-0 border border-dashed border-rule-strong bg-surface px-5 py-10 text-center text-sm leading-relaxed text-ink-muted shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] outline outline-1 outline-dotted outline-black/[0.06] lg:ml-8">
                 No saved packs yet. Open the workspace, choose a project type, and your tech pack will appear here
                 automatically.
               </p>
             ) : (
-              <ul className="m-0 grid list-none grid-cols-1 gap-px rounded-sm border border-rule bg-transparent p-0 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="m-0 grid w-full list-none grid-cols-1 gap-px rounded-none border border-rule-strong bg-rule-strong p-0 sm:grid-cols-2 lg:grid-cols-3">
                 {savedPrompts.map((item) => {
                   const t = typeMeta(item.projectTypeId);
                   const isCurrent = item.id === currentConfig.id;
@@ -81,12 +80,12 @@ export function PromptsHomePage({
                   return (
                     <li
                       key={item.id}
-                      className="group relative flex min-h-[11rem] flex-col overflow-hidden bg-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition-[background-color,box-shadow] hover:bg-surface-raised hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
+                      className="group relative flex aspect-square min-h-0 min-w-0 flex-col overflow-hidden bg-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition-[background-color,box-shadow] hover:bg-surface-raised hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
                     >
                       <button
                         type="button"
                         onClick={() => onOpenPrompt(item)}
-                        className="flex min-h-[10.5rem] flex-1 flex-col gap-2 p-4 pr-11 text-left transition-colors hover:bg-surface-raised/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink/12"
+                        className="flex min-h-0 flex-1 flex-col justify-center gap-2 overflow-hidden p-4 pr-11 text-left transition-colors hover:bg-surface-raised/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink/12"
                         aria-label={`Open tech pack: ${packTitle}`}
                       >
                         <div className="flex min-w-0 items-start justify-between gap-2">

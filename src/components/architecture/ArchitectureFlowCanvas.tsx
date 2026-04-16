@@ -374,9 +374,8 @@ export function ArchitectureFlowCanvas({
         {visibleBlocks.map((block) => {
           const pos = layout.positions[block.id];
           if (!pos) return null;
-          const status = block.statusForTier(tier);
           const isSelected = config.selectedBlockIds.includes(block.id);
-          const isRequired = status === 'required';
+          const isRequired = block.statusForTier(tier) === 'required';
           const isExpanded = expandedBlockId === block.id;
           const chosenOptionId = config.techChoices[block.id];
           const chosenOption = techOptions.find((o) => o.id === chosenOptionId);
@@ -415,31 +414,16 @@ export function ArchitectureFlowCanvas({
                   onClick={() => onExpandToggle(isExpanded ? null : block.id)}
                   className="flex-1 min-w-0 text-left"
                 >
-                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span className="shrink-0 text-ink-muted flex items-center" aria-hidden>
-                      <BlockOcticon blockId={block.id} size={16} />
+                      <BlockOcticon blockId={block.id} size={12} />
                     </span>
                     <span
-                      className={`text-[10px] font-semibold tracking-tight leading-snug ${
+                      className={`min-w-0 text-[10px] font-semibold tracking-tight leading-snug ${
                         isSelected || isRequired ? 'text-ink' : 'text-neutral-400'
                       }`}
                     >
                       {block.name}
-                    </span>
-                    <span
-                      className={`text-[10px] font-semibold shrink-0 ${
-                        status === 'required'
-                          ? 'text-ink-muted'
-                          : status === 'recommended'
-                            ? 'text-accent'
-                            : 'text-ink-faint'
-                      }`}
-                    >
-                      {status === 'required'
-                        ? 'Required'
-                        : status === 'recommended'
-                          ? 'Recommended'
-                          : 'Optional'}
                     </span>
                   </div>
                   {isSelected && (

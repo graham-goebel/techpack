@@ -13,7 +13,7 @@ import { parseProjectConfig } from './utils/projectConfigParse';
 function App() {
   const [appView, setAppView] = useState<'home' | 'workspace'>('home');
   const [pendingProjectTypeId, setPendingProjectTypeId] = useState<string | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   const {
     config,
@@ -108,6 +108,11 @@ function App() {
 
   const goHome = useCallback(() => setAppView('home'), []);
 
+  const exitProjectTypePicker = useCallback(() => {
+    resetWorkspace();
+    setAppView('home');
+  }, [resetWorkspace]);
+
   const handleOpenSaved = useCallback(
     (item: ProjectConfig) => {
       hydrateWorkspace(item);
@@ -130,15 +135,16 @@ function App() {
 
   const inOnboarding = Boolean(config.projectTypeId && config.onboardingCompleted === false);
 
-  const homeCornerButton =
-    appView === 'home' ? null : (
+  /** Fixed home control only during onboarding (workspace uses MainContent tab bar). */
+  const onboardingHomeButton =
+    appView !== 'home' && inOnboarding ? (
       <div className="fixed top-4 right-4 z-[220] pointer-events-auto sm:top-6 sm:right-6">
         <HomeNavButton
           onClick={goHome}
           className="border-rule bg-white/90 shadow-lg shadow-black/10 backdrop-blur-md"
         />
       </div>
-    );
+    ) : null;
 
   if (appView === 'home') {
     return (
@@ -159,7 +165,7 @@ function App() {
     return (
       <>
         {confirmProjectTypeModal}
-        {homeCornerButton}
+        {onboardingHomeButton}
         <ProjectOnboarding
           config={config}
           tier={tier}
@@ -182,7 +188,6 @@ function App() {
   return (
     <>
       {confirmProjectTypeModal}
-      {homeCornerButton}
       <div className="flex h-screen min-w-0 overflow-hidden">
         {config.projectTypeId ? (
           <div
@@ -213,6 +218,7 @@ function App() {
               onRemoveResource={removeResource}
               onCollapseSidebar={() => setSidebarCollapsed(true)}
               onExpandSidebar={() => setSidebarCollapsed(false)}
+              onGoHome={goHome}
             />
           </div>
         ) : null}
@@ -224,6 +230,7 @@ function App() {
           onToggleLibrary={toggleLibrary}
           onToggleIntegration={toggleIntegration}
           onSetProjectType={requestSetProjectType}
+          onExitWithoutSaving={exitProjectTypePicker}
         />
       </div>
     </>

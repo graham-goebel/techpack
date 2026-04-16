@@ -6,7 +6,6 @@ import { blocks } from '../../data/blocks';
 import { techOptions } from '../../data/techOptions';
 import {
   getVisibleIntegrations,
-  skillsShUrl,
   type IntegrationCategory,
   type IntegrationItem,
 } from '../../data/integrations';
@@ -16,6 +15,7 @@ import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
 import { ResourcesPanel } from '../resources/ResourcesPanel';
 import { CustomSelect } from '../ui/CustomSelect';
+import { TYPE_DETAIL_CHIP_BASE } from '../ui/typeDetailChipStyles';
 
 const STEPS = ['details', 'blocks', 'resources'] as const;
 type StepId = (typeof STEPS)[number];
@@ -35,6 +35,9 @@ const INTEGRATION_CATEGORY_LABELS: Record<IntegrationCategory, string> = {
 };
 
 const INTEGRATION_CATEGORY_ORDER: IntegrationCategory[] = ['skill', 'mcp', 'api', 'library'];
+
+/** Matches Sidebar integration list row title (`SIDEBAR_CARD_PRIMARY`) */
+const INTEGRATION_ROW_NAME = 'text-[10px] font-semibold leading-tight text-ink';
 
 function OnboardingBlockExplanationTooltip({ blockId, explanation }: { blockId: string; explanation: string }) {
   const descId = `onboarding-block-explain-${blockId}`;
@@ -169,20 +172,23 @@ export function ProjectOnboarding({
       aria-modal="true"
       aria-labelledby="onboarding-title"
     >
-      <header className="relative shrink-0 border-b border-rule bg-white/80 backdrop-blur-sm px-5 py-4 sm:px-8">
-        <div className="max-w-3xl mx-auto">
+      <header className="relative flex h-[calc(2*var(--geist-grid-major))] shrink-0 items-center border-b border-dashed border-rule-strong/70 geist-grid geist-grid--field px-8 sm:h-[calc(3*var(--geist-grid-major))] sm:px-10 lg:px-12">
+        <div className="mx-auto w-full min-w-0 max-w-3xl">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.15em] mb-1">
+            <p className="struct-label mb-2">
               Setup · Step {stepIndex + 1} of {STEPS.length}
             </p>
-            <h1 id="onboarding-title" className="text-xl sm:text-2xl font-semibold text-ink tracking-tight truncate">
+            <h1
+              id="onboarding-title"
+              className="text-[32px] font-semibold leading-[1.08] tracking-[-0.03em] text-ink sm:text-[44px]"
+            >
               {step === 'details' && 'Project details'}
               {step === 'blocks' && 'Architecture blocks'}
               {step === 'resources' && 'Resources & integrations'}
             </h1>
             {projectType && (
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-[10px] text-ink-muted">{projectType.name}</span>
+              <div className="mt-2 flex min-w-0 items-center gap-2">
+                <span className="min-w-0 truncate text-[10px] text-ink-muted">{projectType.name}</span>
                 <ComplexityDots filled={projectType.tier} size="pill" />
               </div>
             )}
@@ -258,7 +264,7 @@ export function ProjectOnboarding({
                       {field.label}
                     </div>
                     {field.input === 'chips' && field.options ? (
-                      <div className="flex flex-wrap gap-2" role="group" aria-label={field.label}>
+                      <div className="flex flex-wrap gap-2" role="group" aria-label={field.label} data-chip-group>
                         {field.options
                           .filter((opt) => opt.value !== '')
                           .map((opt) => {
@@ -267,12 +273,13 @@ export function ProjectOnboarding({
                               <button
                                 key={opt.value}
                                 type="button"
+                                data-chip
                                 aria-pressed={selected}
                                 onClick={() => onSetTypeDetail(field.id, selected ? '' : opt.value)}
-                                className={`px-3 py-1.5 text-[10px] font-semibold rounded-md border transition-colors ${
+                                className={`${TYPE_DETAIL_CHIP_BASE} ${
                                   selected
-                                    ? 'bg-ink text-surface border-ink'
-                                    : 'bg-surface text-ink-secondary border-rule hover:border-neutral-300'
+                                    ? 'border-ink bg-ink text-surface'
+                                    : 'border-rule bg-surface text-ink-secondary hover:border-neutral-300'
                                 }`}
                               >
                                 {opt.label}
@@ -493,61 +500,68 @@ export function ProjectOnboarding({
                     </div>
                     <div
                       role="tabpanel"
-                      className="max-h-[min(22rem,50vh)] overflow-y-auto divide-y divide-rule"
+                      className="max-h-[min(22rem,50vh)] overflow-y-auto flex flex-col gap-1 px-2 py-2"
                     >
                       {(integrationsByCategory.get(integrationTab) ?? []).map((item) => {
                         const isChosen = config.selectedIntegrationIds.includes(item.id);
-                        const href = item.skillsShPath ? skillsShUrl(item.skillsShPath) : item.url;
                         return (
                           <button
                             key={item.id}
                             type="button"
+                            aria-pressed={isChosen}
                             onClick={() => onToggleIntegration(item.id)}
-                            className={`w-full text-left px-4 py-3 flex gap-3 items-start transition-colors ${
-                              isChosen ? 'bg-surface-raised' : 'hover:bg-surface-raised/60'
+                            className={`group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 ${
+                              isChosen ? 'bg-surface-raised' : 'hover:bg-black/[0.04]'
                             }`}
                           >
                             <IntegrationBrandIcon
                               integrationId={item.id}
                               name={item.name}
                               category={item.category}
-                              className="!h-9 !w-9 [&_svg]:!h-5 [&_svg]:!w-5"
                             />
-                            <div
-                              className={`mt-1 h-4 w-4 shrink-0 border flex items-center justify-center ${
-                                isChosen ? 'border-ink bg-ink' : 'border-ink-faint'
+                            <div className="min-w-0 flex-1">
+                              <p className={INTEGRATION_ROW_NAME}>{item.name}</p>
+                              <p className="mt-0.5 text-[10px] leading-snug text-ink-muted line-clamp-2">
+                                {item.description}
+                              </p>
+                              {item.installHint ? (
+                                <p className="mt-1 font-mono text-[10px] leading-tight text-ink-faint line-clamp-1">
+                                  {item.installHint}
+                                </p>
+                              ) : null}
+                            </div>
+                            <span
+                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+                                isChosen
+                                  ? 'bg-surface-raised text-ink'
+                                  : 'bg-transparent text-ink-muted group-hover:bg-surface-raised'
                               }`}
+                              aria-hidden
                             >
-                              {isChosen && (
+                              {isChosen ? (
                                 <svg
-                                  className="h-2.5 w-2.5 text-surface"
+                                  className="h-4 w-4"
                                   fill="none"
                                   viewBox="0 0 24 24"
                                   stroke="currentColor"
-                                  strokeWidth={3}
+                                  strokeWidth={2.5}
                                   aria-hidden
                                 >
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                 </svg>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <span className={`text-sm font-semibold ${isChosen ? 'text-ink' : 'text-ink-secondary'}`}>
-                                {item.name}
-                              </span>
-                              <p className="text-[10px] text-ink-muted mt-0.5 leading-snug">{item.description}</p>
-                              {href && (
-                                <a
-                                  href={href}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="inline-block mt-2 text-[10px] font-semibold text-accent hover:underline"
+                              ) : (
+                                <svg
+                                  className="h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2}
+                                  aria-hidden
                                 >
-                                  Open link ↗
-                                </a>
+                                  <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+                                </svg>
                               )}
-                            </div>
+                            </span>
                           </button>
                         );
                       })}

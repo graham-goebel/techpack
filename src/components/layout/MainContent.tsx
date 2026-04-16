@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { Block, ProjectConfig, TechOption, Tier } from '../../types';
 import { projectTypes } from '../../data/projectTypes';
 import { blocks } from '../../data/blocks';
@@ -9,6 +10,7 @@ import { getSubagentLaneForBlock } from '../../data/blockSubagentLane';
 import { groupVisibleBlocksByStackLayer } from '../../data/stackLayers';
 import { generatePrompt } from '../../utils/promptGenerator';
 import { ArchitectureFlowCanvas } from '../architecture/ArchitectureFlowCanvas';
+import { FloatingWorkspaceExitButton } from '../ui/FloatingWorkspaceExitButton';
 import { BlockOcticon } from '../icons/OcticonById';
 import { ComplexityDots } from '../ui/ComplexityDots';
 import { LibraryChip } from '../ui/LibraryChip';
@@ -54,6 +56,110 @@ function stackRowHasAddons(
   return INTEGRATION_CATEGORY_ORDER.some(
     (c) => (integrationsByCategory.get(c) ?? []).length > 0,
   );
+}
+
+/** Icons for floating workspace tabs (Heroicons 24 outline). */
+function WorkspaceTabIcon({ id }: { id: 'architecture' | 'map' | 'prompt' }) {
+  const cls = 'h-6 w-6 shrink-0';
+  if (id === 'architecture') {
+    return (
+      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.246 2.246 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-.98.626-1.813 1.5-2.122"
+        />
+      </svg>
+    );
+  }
+  if (id === 'map') {
+    return (
+      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+      />
+    </svg>
+  );
+}
+
+/** Leading icon for Project Stack layer headers (ids from `stackLayers` / `groupVisibleBlocksByStackLayer`). */
+function StackLayerHeadIcon({ layerId }: { layerId: string }) {
+  const cls = 'h-3.5 w-3.5 shrink-0 text-ink-muted';
+  switch (layerId) {
+    case 'presentation':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
+          />
+        </svg>
+      );
+    case 'client':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
+          />
+        </svg>
+      );
+    case 'server':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-.621-2.943l-.5-1.5a3 3 0 01.75-2.907l.75-.75a3 3 0 012.25-.75h.75a3 3 0 012.25.75l.75.75a3 3 0 01.75 2.907l-.5 1.5a3 3 0 01-.621 2.943m-.75 0A3 3 0 0018 16.5V9a3 3 0 00-3-3H9a3 3 0 00-3 3v7.5a3 3 0 003 3h6a3 3 0 003-3v-1.5m-1.5 0v-1.5m-12 0v-1.5m12 0V9m0 0V9a3 3 0 00-3-3H9a3 3 0 00-3 3v7.5a3 3 0 003 3h6a3 3 0 003-3v-1.5m-1.5 0v-1.5m-12 0v-1.5"
+          />
+        </svg>
+      );
+    case 'data-services':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75m-16.5-3.75v3.75"
+          />
+        </svg>
+      );
+    case 'operations':
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.591 0 1.059.457 1.11.994l.214 1.293c.088.543.45.984.94 1.16l1.2.45c.53.2.88.73.88 1.29v2.53c0 .55-.35 1.08-.88 1.29l-1.2.45c-.49.176-.852.617-.94 1.16l-.213 1.293c-.051.537-.52.994-1.11.994h-2.593c-.55 0-1.02-.398-1.11-.94l-.214-1.293c-.088-.543-.45-.984-.94-1.16l-1.2-.45c-.53-.2-.88-.73-.88-1.29v-2.53c0-.55.35-1.08.88-1.29l1.2-.45c.49-.176.852-.617.94-1.16l.213-1.293zM12 15a3 3 0 100-6 3 3 0 000 6z"
+          />
+        </svg>
+      );
+    case 'other':
+    default:
+      return (
+        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"
+          />
+        </svg>
+      );
+  }
 }
 
 /** Small leading icon for package library category headings (matches data/libraries category strings). */
@@ -251,7 +357,7 @@ function StackOptionalAddonsPanel({
                     id={`stack-addon-tab-${block.id}-${tab}`}
                     aria-controls={`stack-addon-panel-${block.id}`}
                     onClick={() => setAddonTab(tab)}
-                    className={`min-w-0 shrink-0 rounded-lg border px-3 py-2 text-left text-xs font-semibold leading-tight tracking-tight transition-colors focus:outline-none focus-visible:z-[1] focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+                    className={`min-w-0 shrink-0 rounded-lg border px-3 py-2 text-left text-[10px] font-semibold leading-tight tracking-tight transition-colors focus:outline-none focus-visible:z-[1] focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
                       isActive
                         ? 'border-ink/20 bg-surface-raised text-ink shadow-sm'
                         : 'border-rule bg-white text-ink-muted hover:bg-black/[0.03] hover:text-ink-secondary'
@@ -349,6 +455,8 @@ interface MainContentProps {
   onToggleLibrary: (libraryId: string) => void;
   onToggleIntegration: (integrationId: string) => void;
   onSetProjectType: (typeId: string) => void;
+  /** Project-type picker only: close without saving (e.g. return to home). */
+  onExitWithoutSaving?: () => void;
 }
 
 export function MainContent({
@@ -359,6 +467,7 @@ export function MainContent({
   onToggleLibrary,
   onToggleIntegration,
   onSetProjectType,
+  onExitWithoutSaving,
 }: MainContentProps) {
   const [copied, setCopied] = useState(false);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
@@ -396,17 +505,37 @@ export function MainContent({
 
   if (!config.projectTypeId) {
     return (
-      <div className="flex-1 min-w-0 w-full overflow-y-auto bg-surface">
-        <div className="max-w-7xl 2xl:max-w-[90rem] mx-auto px-8 sm:px-10 lg:px-12 py-12 animate-fade-in">
-          <p className="struct-label mb-2">Tech pack · project type</p>
-          <h1 className="text-[32px] sm:text-[44px] font-semibold text-ink leading-[1.08] tracking-[-0.03em] mb-2">
-            What are you building?
-          </h1>
-          <p className="text-sm text-ink-muted mb-8">
-            Select a project type to get started.
-          </p>
+      <div className="relative flex-1 min-w-0 w-full overflow-y-auto bg-surface">
+        {onExitWithoutSaving ? (
+          <FloatingWorkspaceExitButton
+            onClick={onExitWithoutSaving}
+            ariaLabel="Close and exit without saving"
+          />
+        ) : null}
+        <div className="w-full animate-fade-in">
+          <section
+            aria-label="Project type"
+            className="border-b border-dashed border-rule-strong/70 geist-grid geist-grid--field"
+          >
+            {/* Same vertical rhythm as ProjectOnboarding header (2× / 3× majors); explainer sits below so this band stays compact */}
+            <div className="flex h-[calc(2*var(--geist-grid-major))] items-center px-8 sm:h-[calc(3*var(--geist-grid-major))] sm:px-10 lg:px-12">
+              <div className="mx-auto w-full min-w-0 max-w-7xl 2xl:max-w-[90rem]">
+                <p className="struct-label mb-2">Tech pack · project type</p>
+                <h1 className="text-[32px] font-semibold leading-[1.08] tracking-[-0.03em] text-ink sm:text-[44px]">
+                  What are you building?
+                </h1>
+              </div>
+            </div>
+            <div className="mx-auto w-full max-w-7xl 2xl:max-w-[90rem] px-8 pb-4 pt-0 sm:px-10 sm:pb-5 lg:px-12">
+              <p className="max-w-2xl text-xs leading-relaxed text-ink-muted sm:text-sm">
+                Select a project type to get started. Complexity goes up with the type you pick: higher tiers include more
+                stack blocks in scope and produce a longer, more detailed generated prompt—so the blueprint matches bigger,
+                more integrated projects.
+              </p>
+            </div>
+          </section>
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 bg-transparent">
+          <div className="grid w-full grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-px border border-rule-strong bg-rule-strong">
             {projectTypes.map((type) => {
               const typeBlocks = blocks.filter((b) => {
                 const s = b.statusForTier(type.tier);
@@ -416,26 +545,24 @@ export function MainContent({
               return (
                 <button
                   key={type.id}
+                  type="button"
                   onClick={() => onSetProjectType(type.id)}
-                  className="text-left p-5 bg-surface/70 backdrop-blur-[1px] border border-rule-strong hover:bg-white/80 hover:border-ink/15 transition-[border,background] group"
+                  className="group flex aspect-square min-h-0 min-w-0 w-full flex-col overflow-hidden text-left bg-white p-5 transition-[background] hover:bg-surface-raised focus:outline-none focus-visible:z-[1] focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                 >
-                  <div aria-hidden className="mb-3 flex items-center">
-                    <ComplexityDots filled={type.tier} size="dot" />
+                  <div className="shrink-0">
+                    <div aria-hidden className="mb-2 flex items-center">
+                      <ComplexityDots filled={type.tier} size="dot" />
+                    </div>
+                    <h3 className="mb-1 line-clamp-2 text-[18px] font-medium tracking-tight text-ink transition-colors group-hover:text-accent">
+                      {type.name}
+                    </h3>
+                    <p className="mb-2 line-clamp-2 text-[10px] leading-snug text-ink-muted">{type.tagline}</p>
+                    <div className="mb-2 h-px bg-rule/30" />
                   </div>
-                  <h3 className="text-[15px] font-medium text-ink tracking-tight mb-1 group-hover:text-accent transition-colors">
-                    {type.name}
-                  </h3>
-                  <p className="text-[10px] text-ink-muted leading-snug mb-3">
-                    {type.tagline}
-                  </p>
-
-                  <div className="h-px bg-rule/30 mb-3" />
-
-                  <p className="text-[10px] text-ink-secondary leading-relaxed line-clamp-3 mb-3">
+                  <p className="min-h-0 flex-1 text-[10px] leading-relaxed text-ink-secondary line-clamp-5">
                     {type.description}
                   </p>
-
-                  <div className="flex items-center gap-1.5 text-[10px] text-ink-faint">
+                  <div className="mt-auto shrink-0 pt-2 flex items-center gap-1.5 text-[10px] text-ink-faint">
                     <span className="font-semibold tabular-nums">{typeBlocks.length}</span>
                     <span>blocks</span>
                   </div>
@@ -490,8 +617,11 @@ export function MainContent({
 
   const tabSurfaceClass = mainTab === 'map' ? 'geist-grid geist-grid--map' : 'bg-surface-raised';
 
-  const stackOrPromptTabPanelPad =
-    'px-6 pb-5 pt-16 sm:px-10 sm:pb-6 sm:pt-[4.5rem] lg:px-12 lg:pb-8';
+  /** Horizontal padding for workspace tab bar + scroll region (nav sits in its own non-scrolling row). */
+  const workspaceNavPadX =
+    mainTab === 'map' ? 'px-3 sm:px-4' : 'px-6 sm:px-10 lg:px-12';
+  const workspaceContentPad =
+    'px-6 pb-5 pt-4 sm:px-10 sm:pb-6 sm:pt-5 lg:px-12 lg:pb-8';
 
   return (
     <div className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden bg-surface">
@@ -502,14 +632,55 @@ export function MainContent({
             role="tabpanel"
             id={`main-tab-panel-${mainTab}`}
             aria-labelledby={`main-tab-${mainTab}`}
-            className={`flex-1 min-h-0 relative min-w-0 flex flex-col ${
-              mainTab === 'map'
-                ? 'overflow-hidden pt-16 sm:pt-[4.5rem]'
-                : mainTab === 'architecture'
-                  ? `${stackOrPromptTabPanelPad} overflow-y-auto`
-                  : `${stackOrPromptTabPanelPad} overflow-hidden`
-            }`}
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
           >
+            <div
+              className={`pointer-events-none z-40 flex shrink-0 justify-center pt-4 sm:pt-5 ${workspaceNavPadX}`}
+            >
+              <nav
+                className="pointer-events-auto ui-chrome-floating flex max-w-full items-center overflow-hidden rounded-md bg-white/92 backdrop-blur-md"
+                role="tablist"
+                aria-label="Workspace"
+              >
+                {(
+                  [
+                    { id: 'architecture' as const, label: 'Stack' },
+                    { id: 'map' as const, label: 'Map' },
+                    { id: 'prompt' as const, label: 'Prompt' },
+                  ] as const
+                ).map((tab, i) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={mainTab === tab.id}
+                    title={tab.label}
+                    id={`main-tab-${tab.id}`}
+                    onClick={() => setMainTab(tab.id)}
+                    className={`flex min-w-0 shrink flex-col items-center justify-center gap-1.5 px-4 py-1.5 transition-colors sm:px-5 sm:py-2 ${
+                      i > 0 ? 'border-l border-rule' : ''
+                    } ${
+                      mainTab === tab.id
+                        ? 'bg-ink text-surface'
+                        : 'text-ink-muted hover:text-ink bg-white/50 hover:bg-white/80'
+                    }`}
+                  >
+                    <WorkspaceTabIcon id={tab.id} />
+                    <span className="text-[9px] font-medium leading-none tracking-tight">{tab.label}</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            <div
+              className={
+                mainTab === 'architecture'
+                  ? `min-h-0 flex-1 overflow-x-hidden overflow-y-auto ${workspaceContentPad}`
+                  : mainTab === 'map'
+                    ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
+                    : `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${workspaceContentPad}`
+              }
+            >
             {mainTab === 'architecture' && (
               <div className="mx-auto min-w-0 w-full max-w-[52rem] px-0 py-4 sm:py-5">
                   <header className="shrink-0 pb-4">
@@ -537,7 +708,7 @@ export function MainContent({
                     </p>
                   </header>
 
-                  <div className="mt-5 flex min-w-0 flex-col gap-2">
+                  <div className="mt-5 flex min-w-0 flex-col gap-8">
                 {stackGroups.map((group) => {
                   const isCollapsed = hiddenStackLayers.has(group.layerId);
                   const panelId = `stack-section-${group.layerId}`;
@@ -550,12 +721,15 @@ export function MainContent({
                       <button
                         type="button"
                         onClick={() => toggleStackLayerVisibility(group.layerId)}
-                        className="flex w-full items-center justify-between gap-3 bg-surface-raised/40 px-4 py-2.5 text-left transition-colors hover:bg-surface-raised/90"
+                        className={`flex w-full items-center justify-between gap-3 bg-surface-raised/40 px-4 text-left transition-[padding,background-color] duration-300 ease-out motion-reduce:duration-150 hover:bg-surface-raised/90 ${
+                          isCollapsed ? 'py-4' : 'py-2.5'
+                        }`}
                         aria-expanded={!isCollapsed}
                         aria-controls={panelId}
                         id={headId}
                       >
-                        <div className="flex min-w-0 flex-wrap items-baseline gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <StackLayerHeadIcon layerId={group.layerId} />
                           <span className="text-[10px] font-medium uppercase tracking-[0.06em] text-ink">
                             {group.label}
                           </span>
@@ -565,7 +739,7 @@ export function MainContent({
                         </div>
                         <span className="shrink-0 flex items-center">
                           <svg
-                            className={`h-3.5 w-3.5 text-ink-muted transition-transform shrink-0 ${
+                            className={`h-3.5 w-3.5 text-ink-muted transition-transform duration-300 ease-out motion-reduce:duration-150 shrink-0 ${
                               isCollapsed ? '' : 'rotate-180'
                             }`}
                             fill="none"
@@ -578,34 +752,40 @@ export function MainContent({
                           </svg>
                         </span>
                       </button>
-                      {!isCollapsed && (
-                        <div
-                          id={panelId}
-                          role="region"
-                          aria-labelledby={headId}
-                          className="divide-y divide-rule"
-                        >
-                          {group.blocks.map((block) => (
-                            <StackBlockRow
-                              key={block.id}
-                              block={block}
-                              tier={tier}
-                              config={config}
-                              expandedBlockId={expandedBlockId}
-                              setExpandedBlockId={setExpandedBlockId}
-                              comparingBlockId={comparingBlockId}
-                              setComparingBlockId={setComparingBlockId}
-                              onToggleBlock={onToggleBlock}
-                              onSetTechChoice={onSetTechChoice}
-                              onToggleLibrary={onToggleLibrary}
-                              onToggleIntegration={onToggleIntegration}
-                              integrationsByCategory={integrationsByCategory}
-                              stackAddonTab={stackAddonTab}
-                              setStackAddonTab={setStackAddonTab}
-                            />
-                          ))}
+                      <div
+                        className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${
+                          isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+                        }`}
+                      >
+                        <div className="min-h-0 overflow-hidden" inert={isCollapsed}>
+                          <div
+                            id={panelId}
+                            role="region"
+                            aria-labelledby={headId}
+                            className="divide-y divide-rule"
+                          >
+                            {group.blocks.map((block) => (
+                              <StackBlockRow
+                                key={block.id}
+                                block={block}
+                                tier={tier}
+                                config={config}
+                                expandedBlockId={expandedBlockId}
+                                setExpandedBlockId={setExpandedBlockId}
+                                comparingBlockId={comparingBlockId}
+                                setComparingBlockId={setComparingBlockId}
+                                onToggleBlock={onToggleBlock}
+                                onSetTechChoice={onSetTechChoice}
+                                onToggleLibrary={onToggleLibrary}
+                                onToggleIntegration={onToggleIntegration}
+                                integrationsByCategory={integrationsByCategory}
+                                stackAddonTab={stackAddonTab}
+                                setStackAddonTab={setStackAddonTab}
+                              />
+                            ))}
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </section>
                   );
                 })}
@@ -626,8 +806,8 @@ export function MainContent({
             )}
 
             {mainTab === 'prompt' && (
-              <div className="flex-1 min-h-0 flex flex-col border border-dashed border-rule-strong bg-surface rounded-sm overflow-hidden outline outline-1 outline-dotted outline-black/[0.06]">
-                <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 border-b border-dashed border-rule bg-surface-raised/60">
+              <div className="flex-1 min-h-0 flex flex-col border border-rule bg-surface rounded-sm overflow-hidden">
+                <div className="shrink-0 flex items-center justify-between gap-3 border-b border-rule bg-surface-raised/60 px-4 py-2.5">
                   <span className="text-[10px] font-mono font-medium text-ink-muted uppercase tracking-[0.12em] tabular-nums">
                     {prompt.length > 0
                       ? `${prompt.length.toLocaleString()} characters`
@@ -637,7 +817,7 @@ export function MainContent({
                     type="button"
                     onClick={handleCopy}
                     disabled={!prompt}
-                    className="text-[10px] font-bold text-ink uppercase tracking-wider border border-dashed border-rule-strong px-3 py-1 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                    className="text-[10px] font-bold text-ink uppercase tracking-wider border border-rule px-3 py-1 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:pointer-events-none"
                   >
                     {copied ? 'Copied' : 'Copy'}
                   </button>
@@ -647,43 +827,6 @@ export function MainContent({
                 </pre>
               </div>
             )}
-
-            <div
-              className={`pointer-events-none absolute top-4 z-40 flex justify-center sm:top-5 ${
-                mainTab === 'map' ? 'inset-x-3 sm:inset-x-4' : 'inset-x-6 sm:inset-x-10 lg:inset-x-12'
-              }`}
-            >
-              <nav
-                className="pointer-events-auto ui-chrome-floating flex max-w-full items-center overflow-hidden rounded-full bg-white/92 backdrop-blur-md"
-                role="tablist"
-                aria-label="Workspace"
-              >
-                {(
-                  [
-                    { id: 'architecture' as const, label: 'Stack' },
-                    { id: 'map' as const, label: 'Map' },
-                    { id: 'prompt' as const, label: 'Prompt' },
-                  ] as const
-                ).map((tab, i) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={mainTab === tab.id}
-                    id={`main-tab-${tab.id}`}
-                    onClick={() => setMainTab(tab.id)}
-                    className={`min-w-0 shrink px-3 py-1 text-[8px] font-medium tracking-tight transition-colors sm:px-4 sm:py-1 ${
-                      i > 0 ? 'border-l border-rule' : ''
-                    } ${
-                      mainTab === tab.id
-                        ? 'bg-ink text-surface'
-                        : 'text-ink-muted hover:text-ink bg-white/50 hover:bg-white/80'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </nav>
             </div>
           </div>
         </div>
@@ -749,13 +892,13 @@ function StackBlockRow({
           className="flex-1 min-w-0 text-left"
         >
           <span
-            className={`block pt-0.5 text-[18px] font-medium tracking-tight ${
+            className={`block pt-0.5 text-[16px] font-medium tracking-tight ${
               isSelected || isRequired ? 'text-ink' : 'text-neutral-400'
             }`}
           >
             {block.name}
           </span>
-          <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-ink-muted">
+          <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-ink-faint">
             {block.summary}
           </p>
         </button>
@@ -1029,6 +1172,84 @@ function StackBlockRow({
   );
 }
 
+/** Renders above the trigger via fixed + portal so overflow on stack scroll/accordion does not clip tooltips. */
+function StackFloatingTooltip({
+  children,
+  tooltip,
+}: {
+  children: React.ReactNode;
+  tooltip: React.ReactNode;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const measure = useCallback(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const width = Math.min(288, window.innerWidth - 32);
+    setPos({
+      top: r.top - 6,
+      left: Math.min(Math.max(16, r.right - width), window.innerWidth - width - 16),
+      width,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    measure();
+  }, [open, measure]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onScroll = () => measure();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [open, measure]);
+
+  return (
+    <div
+      ref={wrapRef}
+      className="relative shrink-0"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={(e) => {
+        if (!wrapRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
+      }}
+    >
+      {children}
+      {open &&
+        pos != null &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{
+              position: 'fixed',
+              top: pos.top,
+              left: pos.left,
+              width: pos.width,
+              transform: 'translateY(-100%)',
+              zIndex: 10000,
+            }}
+            className="pointer-events-none rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[10px] text-surface/90 leading-snug shadow-lg shadow-black/30"
+          >
+            {tooltip}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}
+
 function getEffectiveModelForStackBlock(blockId: string, config: ProjectConfig) {
   const lane = getSubagentLaneForBlock(blockId);
   const overrideId = lane ? (config.subagentModels?.[lane.id] ?? '').trim() : '';
@@ -1045,7 +1266,23 @@ function ModelChoiceChip({ blockId, config }: { blockId: string; config: Project
   const { model, lane, hasLaneOverride } = meta;
   const a11yId = `model-chip-desc-${blockId}`;
   return (
-    <div className="group relative shrink-0">
+    <StackFloatingTooltip
+      tooltip={
+        <>
+          <p className="leading-snug">
+            <span className="font-semibold text-surface">{model.name}</span>
+            <span className="text-surface/55"> ({model.provider})</span>
+          </p>
+          {lane ? (
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-surface/45">
+              {lane.label}
+              {hasLaneOverride ? ' · Dedicated model' : ' · Same as primary'}
+            </p>
+          ) : null}
+          <p className="mt-1.5 leading-relaxed text-surface/85">{model.reasoning}</p>
+        </>
+      }
+    >
       <span id={a11yId} className="sr-only">
         {model.name}, {model.provider}. {model.reasoning}
         {lane
@@ -1059,30 +1296,32 @@ function ModelChoiceChip({ blockId, config }: { blockId: string; config: Project
       >
         {model.name}
       </span>
-      <div
-        role="tooltip"
-        className="pointer-events-none absolute z-[230] right-0 bottom-[calc(100%+6px)] w-[min(18rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[10px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
-      >
-        <p className="leading-snug">
-          <span className="font-semibold text-surface">{model.name}</span>
-          <span className="text-surface/55"> ({model.provider})</span>
-        </p>
-        {lane ? (
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-surface/45">
-            {lane.label}
-            {hasLaneOverride ? ' · Dedicated model' : ' · Same as primary'}
-          </p>
-        ) : null}
-        <p className="mt-1.5 leading-relaxed text-surface/85">{model.reasoning}</p>
-      </div>
-    </div>
+    </StackFloatingTooltip>
   );
 }
 
 function TechChoiceChip({ option, instanceId }: { option: TechOption; instanceId: string }) {
   const a11yId = `tech-chip-desc-${instanceId}`;
   return (
-    <div className="group relative shrink-0">
+    <StackFloatingTooltip
+      tooltip={
+        <>
+          <p className="leading-relaxed">{option.description}</p>
+          {option.pros.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-white/15">
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-surface/50 mb-1">
+                Why this choice
+              </p>
+              <ul className="space-y-0.5 text-[10px] text-surface/75 list-disc pl-3.5 marker:text-surface/45">
+                {option.pros.map((pro, i) => (
+                  <li key={i}>{pro}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      }
+    >
       <span id={a11yId} className="sr-only">
         {option.description}
         {option.pros.length > 0 ? ` Strengths: ${option.pros.join('. ')}` : ''}
@@ -1094,24 +1333,6 @@ function TechChoiceChip({ option, instanceId }: { option: TechOption; instanceId
       >
         {option.name}
       </span>
-      <div
-        role="tooltip"
-        className="pointer-events-none absolute z-[230] right-0 bottom-[calc(100%+6px)] w-[min(18rem,calc(100vw-2rem))] rounded-md border border-white/12 bg-ink px-2.5 py-2 text-[10px] text-surface/90 leading-snug shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
-      >
-        <p className="leading-relaxed">{option.description}</p>
-        {option.pros.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-white/15">
-            <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-surface/50 mb-1">
-              Why this choice
-            </p>
-            <ul className="space-y-0.5 text-[10px] text-surface/75 list-disc pl-3.5 marker:text-surface/45">
-              {option.pros.map((pro, i) => (
-                <li key={i}>{pro}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </div>
+    </StackFloatingTooltip>
   );
 }

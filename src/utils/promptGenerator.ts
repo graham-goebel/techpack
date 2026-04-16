@@ -144,6 +144,11 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
   sections.push(`## Type: ${projectType.name}`);
   sections.push('');
 
+  sections.push('## Getting Started');
+  sections.push('');
+  sections.push(generateGettingStarted(tier, selectedBlocks, config));
+  sections.push('');
+
   if (config.buildAsYouGo) {
     sections.push('## Workflow');
     sections.push('');
@@ -266,12 +271,6 @@ export function generatePrompt(config: ProjectConfig, tier: Tier): string {
   sections.push('```');
   sections.push(generateFileStructure(tier, config));
   sections.push('```');
-  sections.push('');
-
-  // Getting started
-  sections.push('## Getting Started');
-  sections.push('');
-  sections.push(generateGettingStarted(tier, selectedBlocks, config));
   sections.push('');
 
   const chosenIntegrations = (config.selectedIntegrationIds ?? [])
