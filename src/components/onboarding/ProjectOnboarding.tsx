@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ProjectConfig, ProjectFileResource, Tier } from '../../types';
+import type { Block, ProjectConfig, ProjectFileResource, Tier } from '../../types';
 import { projectTypes } from '../../data/projectTypes';
 import { getTypeDetailFields } from '../../data/projectTypeDetailFields';
 import { blocks } from '../../data/blocks';
@@ -27,6 +27,106 @@ function blockDefaultAndPickedTech(blockId: string, config: ProjectConfig) {
   return { defaultOpt, pickedOpt };
 }
 
+/** Inline pill for default / picked tech labels on onboarding block tiles */
+const ONBOARDING_TECH_TAG =
+  'inline-flex w-fit max-w-full min-w-0 items-center overflow-hidden text-ellipsis whitespace-nowrap border border-rule px-1.5 py-0.5 font-medium text-[10px] leading-tight text-ink-secondary';
+const ONBOARDING_TECH_TAG_EMPHASIS =
+  'inline-flex w-fit max-w-full min-w-0 items-center overflow-hidden text-ellipsis whitespace-nowrap border border-ink/25 px-1.5 py-0.5 font-semibold text-[10px] leading-tight text-ink';
+
+function OnboardingBlockStepCard({
+  block,
+  tier,
+  config,
+  onToggleBlock,
+}: {
+  block: Block;
+  tier: Tier;
+  config: ProjectConfig;
+  onToggleBlock: (blockId: string) => void;
+}) {
+  const status = block.statusForTier(tier);
+  const isSelected = config.selectedBlockIds.includes(block.id);
+  const isRequired = status === 'required';
+  const active = isRequired || isSelected;
+  const { defaultOpt, pickedOpt } = blockDefaultAndPickedTech(block.id, config);
+
+  return (
+    <li
+      className={`flex min-h-0 min-w-0 transition-opacity ${!active && !isRequired ? 'opacity-70' : ''}`}
+    >
+      <div className="flex min-h-0 w-full min-w-0 flex-col aspect-square bg-surface overflow-hidden transition-colors hover:bg-surface-raised/80">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4 sm:p-5">
+          <div className="flex min-h-0 flex-1 gap-3">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-1.5">
+              <div className="flex flex-wrap items-baseline gap-2 gap-y-1">
+                <span
+                  className={`text-[14px] sm:text-[15px] font-semibold leading-snug ${active ? 'text-ink' : 'text-ink-muted'}`}
+                >
+                  {block.name}
+                </span>
+              </div>
+              {block.summary ? (
+                <p className="text-[10px] leading-relaxed text-ink-faint line-clamp-3">{block.summary}</p>
+              ) : null}
+              {/* Fixed min height so tiles without a tech tag line up with tiles that have one */}
+              <div className="mt-1.5 flex min-h-[1.625rem] min-w-0 flex-col justify-end gap-1">
+                {!active && defaultOpt ? <span className={ONBOARDING_TECH_TAG}>{defaultOpt.name}</span> : null}
+                {active && pickedOpt && defaultOpt && pickedOpt.id === defaultOpt.id ? (
+                  <span className={ONBOARDING_TECH_TAG}>{pickedOpt.name}</span>
+                ) : null}
+                {active && pickedOpt && defaultOpt && pickedOpt.id !== defaultOpt.id ? (
+                  <>
+                    <span className={ONBOARDING_TECH_TAG}>{defaultOpt.name}</span>
+                    <span className={ONBOARDING_TECH_TAG_EMPHASIS}>{pickedOpt.name}</span>
+                  </>
+                ) : null}
+                {active && pickedOpt && !defaultOpt ? <span className={ONBOARDING_TECH_TAG}>{pickedOpt.name}</span> : null}
+                {active && !pickedOpt && defaultOpt ? <span className={ONBOARDING_TECH_TAG}>{defaultOpt.name}</span> : null}
+              </div>
+            </div>
+            <span className="mt-0.5 shrink-0 self-start text-ink" aria-hidden>
+              <BlockOcticon blockId={block.id} size={20} />
+            </span>
+          </div>
+        </div>
+        {!isRequired && (
+          <div className="flex shrink-0 justify-end bg-surface/80 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
+            <button
+              type="button"
+              onClick={() => onToggleBlock(block.id)}
+              aria-label={isSelected ? 'Included — click to remove' : 'Add block'}
+              aria-pressed={isSelected}
+              className={`inline-flex shrink-0 items-center justify-center border transition-colors ${
+                isSelected
+                  ? 'h-9 w-9 border-ink bg-ink text-surface hover:opacity-90'
+                  : 'h-10 w-10 border-ink/35 bg-surface text-ink shadow-[0_1px_2px_rgba(0,0,0,0.06)] hover:border-ink/50 hover:bg-surface-raised'
+              }`}
+            >
+              {isSelected ? (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.75}
+                  strokeLinecap="round"
+                  aria-hidden
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
 const INTEGRATION_CATEGORY_LABELS: Record<IntegrationCategory, string> = {
   skill: 'Skills',
   mcp: 'MCPs',
@@ -38,31 +138,6 @@ const INTEGRATION_CATEGORY_ORDER: IntegrationCategory[] = ['skill', 'mcp', 'api'
 
 /** Matches Sidebar integration list row title (`SIDEBAR_CARD_PRIMARY`) */
 const INTEGRATION_ROW_NAME = 'text-[10px] font-semibold leading-tight text-ink';
-
-function OnboardingBlockExplanationTooltip({ blockId, explanation }: { blockId: string; explanation: string }) {
-  const descId = `onboarding-block-explain-${blockId}`;
-  return (
-    <div className="group relative inline-flex max-w-full min-w-0">
-      <button
-        type="button"
-        className="text-[10px] font-medium text-ink-muted decoration-rule decoration-1 underline-offset-2 hover:text-ink-secondary hover:decoration-ink-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-1 focus-visible:ring-offset-surface rounded-sm text-left"
-        aria-describedby={descId}
-      >
-        Full description
-      </button>
-      <span id={descId} className="sr-only">
-        {explanation}
-      </span>
-      <div
-        role="tooltip"
-        aria-hidden="true"
-        className="pointer-events-none absolute z-[250] left-0 top-[calc(100%+6px)] w-[min(20rem,calc(100vw-2.5rem))] rounded-md border border-white/12 bg-ink px-3 py-2.5 text-[10px] text-surface/90 leading-relaxed shadow-lg shadow-black/30 opacity-0 invisible scale-95 transition-all duration-150 group-hover:opacity-100 group-hover:visible group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:scale-100"
-      >
-        {explanation}
-      </div>
-    </div>
-  );
-}
 
 interface ProjectOnboardingProps {
   config: ProjectConfig;
@@ -111,6 +186,16 @@ export function ProjectOnboarding({
           return order[a.statusForTier(tier)] - order[b.statusForTier(tier)];
         }),
     [tier],
+  );
+
+  const requiredOnboardingBlocks = useMemo(
+    () => visibleBlocks.filter((b) => b.statusForTier(tier) === 'required'),
+    [visibleBlocks, tier],
+  );
+
+  const optionalOnboardingBlocks = useMemo(
+    () => visibleBlocks.filter((b) => b.statusForTier(tier) !== 'required'),
+    [visibleBlocks, tier],
   );
 
   const toolsForTier = useMemo(
@@ -205,7 +290,7 @@ export function ProjectOnboarding({
                 so model suggestions and prompt wording stay compatible. The extra fields below are tailored to your
                 project type.
               </p>
-              <div className="border border-rule rounded-lg overflow-hidden divide-y divide-rule">
+              <div className="border border-rule rounded-sm overflow-hidden divide-y divide-rule">
                 <div className="p-4 sm:p-5">
                   <label className="block text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-2">
                     Name
@@ -324,114 +409,50 @@ export function ProjectOnboarding({
           )}
 
           {step === 'blocks' && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="rounded-lg border border-accent/25 bg-accent-light/40 px-4 py-4 sm:px-5 sm:py-5">
-                <p className="text-[10px] font-bold text-accent uppercase tracking-[0.12em] mb-2">What are blocks?</p>
-                <p className="text-sm text-ink-secondary leading-relaxed">
-                  <strong className="text-ink font-semibold">Blocks</strong> are the major pillars of your stack — things
-                  like visual language, interactivity, routing, or a database. Each block maps to real technology
-                  choices in the next screen. Required blocks are always on; recommended and optional ones let you shape
-                  the architecture before you see the full tech stack.
-                </p>
-              </div>
+            <div className="space-y-10 animate-fade-in">
+              {requiredOnboardingBlocks.length > 0 ? (
+                <section aria-labelledby="onboarding-blocks-required-heading">
+                  <h2
+                    id="onboarding-blocks-required-heading"
+                    className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-3"
+                  >
+                    Required blocks
+                  </h2>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-px border border-rule bg-rule list-none p-0 m-0 items-stretch">
+                    {requiredOnboardingBlocks.map((block) => (
+                      <OnboardingBlockStepCard
+                        key={block.id}
+                        block={block}
+                        tier={tier}
+                        config={config}
+                        onToggleBlock={onToggleBlock}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
 
-              <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 list-none p-0 m-0 items-stretch">
-                {visibleBlocks.map((block) => {
-                  const status = block.statusForTier(tier);
-                  const isSelected = config.selectedBlockIds.includes(block.id);
-                  const isRequired = status === 'required';
-                  const active = isRequired || isSelected;
-                  const { defaultOpt, pickedOpt } = blockDefaultAndPickedTech(block.id, config);
-
-                  return (
-                    <li
-                      key={block.id}
-                      className={`flex min-h-0 transition-opacity ${
-                        !active && !isRequired ? 'opacity-70' : ''
-                      }`}
-                    >
-                      <div className="flex flex-col flex-1 w-full min-h-0 border border-rule rounded-lg overflow-visible bg-surface hover:bg-surface-raised/80 transition-colors">
-                        <div className="flex gap-3 p-4 sm:p-5 flex-1 min-h-0">
-                          <div className="min-w-0 flex-1 flex flex-col gap-1.5">
-                            <div className="flex flex-wrap items-baseline gap-2 gap-y-1">
-                              <span className={`text-[14px] sm:text-[15px] font-semibold leading-snug ${active ? 'text-ink' : 'text-ink-muted'}`}>
-                                {block.name}
-                              </span>
-                              <span
-                                className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                                  status === 'required'
-                                    ? 'text-ink-muted'
-                                    : status === 'recommended'
-                                      ? 'text-accent'
-                                      : 'text-ink-faint'
-                                }`}
-                              >
-                                {status === 'required' ? 'Required' : status === 'recommended' ? 'Recommended' : 'Optional'}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-ink-muted leading-relaxed">{block.summary}</p>
-                            {(defaultOpt || pickedOpt) && (
-                              <div className="mt-1.5 space-y-1 border-t border-rule/50 pt-1.5">
-                                {!active && defaultOpt ? (
-                                  <p className="text-[10px] leading-snug text-ink-muted">
-                                    <span className="font-medium text-ink-secondary">{defaultOpt.name}</span>
-                                  </p>
-                                ) : null}
-                                {active && pickedOpt && defaultOpt && pickedOpt.id === defaultOpt.id ? (
-                                  <p className="text-[10px] leading-snug text-ink-muted">
-                                    <span className="font-medium text-ink-secondary">{pickedOpt.name}</span>
-                                  </p>
-                                ) : null}
-                                {active && pickedOpt && defaultOpt && pickedOpt.id !== defaultOpt.id ? (
-                                  <>
-                                    <p className="text-[10px] leading-snug text-ink-muted">
-                                      <span className="font-medium text-ink-secondary">{defaultOpt.name}</span>
-                                    </p>
-                                    <p className="text-[10px] leading-snug text-ink-muted">
-                                      <span className="font-semibold text-ink">{pickedOpt.name}</span>
-                                    </p>
-                                  </>
-                                ) : null}
-                                {active && pickedOpt && !defaultOpt ? (
-                                  <p className="text-[10px] leading-snug text-ink-muted">
-                                    <span className="font-medium text-ink-secondary">{pickedOpt.name}</span>
-                                  </p>
-                                ) : null}
-                                {active && !pickedOpt && defaultOpt ? (
-                                  <p className="text-[10px] leading-snug text-ink-muted">
-                                    <span className="font-medium text-ink-secondary">{defaultOpt.name}</span>
-                                  </p>
-                                ) : null}
-                              </div>
-                            )}
-                            <div className="flex-1 min-h-0 flex items-end pt-0.5">
-                              <OnboardingBlockExplanationTooltip blockId={block.id} explanation={block.explanation} />
-                            </div>
-                          </div>
-                          <span className="shrink-0 text-ink mt-0.5" aria-hidden>
-                            <BlockOcticon blockId={block.id} size={20} />
-                          </span>
-                        </div>
-                        {!isRequired && (
-                          <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-0 flex justify-end border-t border-rule/60 bg-surface/80">
-                            <button
-                              type="button"
-                              onClick={() => onToggleBlock(block.id)}
-                              className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 border transition-colors w-full sm:w-auto min-w-[5.5rem] ${
-                                isSelected
-                                  ? 'border-ink bg-ink text-surface'
-                                  : 'border-rule text-ink-muted hover:border-ink/30 hover:text-ink'
-                              }`}
-                            >
-                              {isSelected ? 'Included' : 'Add'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              {optionalOnboardingBlocks.length > 0 ? (
+                <section aria-labelledby="onboarding-blocks-optional-heading">
+                  <h2
+                    id="onboarding-blocks-optional-heading"
+                    className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-3"
+                  >
+                    Optional blocks
+                  </h2>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-px border border-rule bg-rule list-none p-0 m-0 items-stretch">
+                    {optionalOnboardingBlocks.map((block) => (
+                      <OnboardingBlockStepCard
+                        key={block.id}
+                        block={block}
+                        tier={tier}
+                        config={config}
+                        onToggleBlock={onToggleBlock}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
             </div>
           )}
 
@@ -446,7 +467,7 @@ export function ProjectOnboarding({
 
               <section>
                 <h2 className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-3">Resources</h2>
-                <div className="border border-rule rounded-lg overflow-hidden bg-surface-raised/30">
+                <div className="border border-rule rounded-lg overflow-hidden bg-transparent">
                   <ResourcesPanel
                     resources={config.resources ?? []}
                     onAddUrl={onAddResourceUrl}
@@ -584,9 +605,12 @@ export function ProjectOnboarding({
           <button
             type="button"
             onClick={goBack}
-            className="text-[10px] font-bold tracking-wider text-ink-muted hover:text-ink py-2.5 sm:py-0 text-center sm:text-left"
+            aria-label={step === 'details' ? 'Change project type' : 'Back'}
+            className="inline-flex items-center justify-center rounded-md p-2.5 text-ink-muted hover:text-ink hover:bg-black/[0.04] transition-colors sm:p-2"
           >
-            {step === 'details' ? '← Change project type' : '← Back'}
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
           </button>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
             {step === 'resources' && (
@@ -601,9 +625,12 @@ export function ProjectOnboarding({
             <button
               type="button"
               onClick={goNext}
-              className="order-1 sm:order-2 px-5 py-2.5 text-[10px] font-bold tracking-tight bg-ink text-surface hover:opacity-90 transition-opacity"
+              aria-label={step === 'resources' ? 'Finish and view stack' : 'Continue'}
+              className="order-1 sm:order-2 inline-flex items-center justify-center rounded-md px-4 py-2.5 bg-ink text-surface hover:opacity-90 transition-opacity"
             >
-              {step === 'resources' ? 'Finish & view stack' : 'Continue'}
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
             </button>
           </div>
         </div>

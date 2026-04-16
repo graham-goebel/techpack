@@ -379,6 +379,7 @@ export function ArchitectureFlowCanvas({
           const isExpanded = expandedBlockId === block.id;
           const chosenOptionId = config.techChoices[block.id];
           const chosenOption = techOptions.find((o) => o.id === chosenOptionId);
+          const blockTechOptions = techOptions.filter((o) => o.blockId === block.id);
 
           return (
             <div
@@ -429,12 +430,14 @@ export function ArchitectureFlowCanvas({
                   {isSelected && (
                     <>
                       {chosenOption ? (
-                        <p className="text-[10px] text-ink-muted leading-snug truncate mt-1">
+                        <span
+                          className="mt-1 inline-block max-w-full truncate rounded-sm border border-rule bg-transparent px-1.5 py-px text-[10px] font-medium leading-snug text-ink-muted"
+                        >
                           {chosenOption.name}
-                        </p>
-                      ) : (
-                        <p className="text-[10px] text-ink-faint italic mt-1">Choose technology →</p>
-                      )}
+                        </span>
+                      ) : blockTechOptions.length > 0 ? (
+                        <p className="mt-1 text-[10px] italic text-ink-faint">Choose technology →</p>
+                      ) : null}
                       <p className="text-[10px] text-ink-muted leading-snug line-clamp-2 mt-1">
                         {block.summary}
                       </p>
@@ -451,38 +454,51 @@ export function ArchitectureFlowCanvas({
       {expandedBlock && expandedMeta?.isSelected && (
         <div
           data-flow-panel
-          className="absolute z-30 right-3 top-3 h-[min(80vh,calc(100%-24px))] w-96 max-w-[calc(100%-24px)] flex flex-col bg-white border border-rule shadow-md animate-fade-in pointer-events-auto"
+          className="absolute z-30 right-3 top-3 h-[min(80vh,calc(100%-24px))] w-96 max-w-[calc(100%-24px)] flex flex-col overflow-hidden rounded-lg border border-rule bg-white shadow-md animate-fade-in pointer-events-auto"
           onPointerDown={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >
-          <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-rule bg-surface-raised">
-            <div className="min-w-0 flex items-center gap-2">
-              <span className="text-ink-muted flex items-center shrink-0" aria-hidden>
-                <BlockOcticon blockId={expandedBlock.id} size={20} />
-              </span>
-              <span className="text-[10px] font-bold text-ink truncate">{expandedBlock.name}</span>
-            </div>
+          <div className="flex shrink-0 min-h-[3.75rem] items-center gap-2 border-b border-rule bg-surface-raised px-5 py-3.5">
+            <span className="flex shrink-0 items-center text-ink-muted" aria-hidden>
+              <BlockOcticon blockId={expandedBlock.id} size={18} />
+            </span>
+            <span className="min-w-0 flex-1 truncate pt-0.5 text-[16px] font-medium tracking-tight text-ink">
+              {expandedBlock.name}
+            </span>
             <button
               type="button"
               onClick={() => onExpandToggle(null)}
-              className="text-[10px] font-bold uppercase tracking-wider text-ink-muted hover:text-ink shrink-0"
+              className="flex h-5 w-5 shrink-0 items-center justify-center text-ink-faint transition-colors hover:text-ink"
+              aria-label="Close panel"
             >
-              Close
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-gutter:stable]">
-            <div className="px-3 py-2.5 border-b border-rule">
-              <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">What is this</p>
-              <p className="text-[10px] text-ink-secondary leading-relaxed">{expandedBlock.explanation}</p>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white [scrollbar-gutter:stable]">
+            <div className="border-b border-rule">
+              <div className="px-5 pb-5 pt-4">
+                <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
+                  What is this
+                </p>
+                <p className="text-[10px] leading-relaxed text-ink-secondary">{expandedBlock.explanation}</p>
+              </div>
             </div>
-            <div className="px-3 py-2.5 border-b border-rule">
-              <p className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em] mb-1">Why</p>
-              <p className="text-[10px] text-ink-secondary leading-relaxed">{expandedBlock.whyNeeded}</p>
+            <div className="border-b border-rule">
+              <div className="px-5 pb-5 pt-4">
+                <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
+                  Why
+                </p>
+                <p className="text-[10px] leading-relaxed text-ink-secondary">{expandedBlock.whyNeeded}</p>
+              </div>
             </div>
             {expandedMeta.blockOptions.length > 0 && (
-              <div>
-                <div className="px-3 py-1.5 bg-neutral-50 border-b border-neutral-100">
-                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-[0.12em]">Technology</span>
+              <div className="bg-white">
+                <div className="border-b border-rule px-5 py-3">
+                  <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
+                    Technology
+                  </p>
                 </div>
                 {expandedMeta.blockOptions.map((option) => {
                   const isChosen = expandedMeta.chosenOptionId === option.id;
@@ -491,34 +507,35 @@ export function ArchitectureFlowCanvas({
                       key={option.id}
                       type="button"
                       onClick={() => onSetTechChoice(expandedBlock.id, option.id)}
-                      className={`w-full text-left px-3 py-2 border-b border-neutral-100 last:border-b-0 transition-colors ${
-                        isChosen ? 'bg-ink text-white' : 'hover:bg-neutral-50'
+                      className={`flex w-full items-start gap-3 border-b border-rule px-5 py-3 text-left transition-colors last:border-b-0 ${
+                        isChosen ? 'bg-surface' : 'hover:bg-surface-raised'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`h-2 w-2 border shrink-0 flex items-center justify-center ${
-                            isChosen ? 'border-white/50' : 'border-ink-faint'
-                          }`}
-                        >
-                          {isChosen && <div className="h-0.5 w-0.5 bg-white" />}
-                        </div>
-                        <span className="text-[10px] font-bold flex-1 truncate">{option.name}</span>
-                        {option.isDefault && (
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span
-                            className={`text-[10px] font-bold uppercase ${isChosen ? 'text-white/40' : 'text-accent'}`}
+                            className={`min-w-0 truncate text-[10px] font-semibold leading-tight ${
+                              isChosen ? 'text-ink' : 'text-ink-secondary'
+                            }`}
                           >
-                            Default
+                            {option.name}
                           </span>
-                        )}
+                          {option.isDefault && (
+                            <span className="shrink-0 text-[8px] font-medium uppercase tracking-wide text-accent">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 line-clamp-3 text-[10px] leading-relaxed text-ink-muted">{option.description}</p>
                       </div>
-                      <p
-                        className={`text-[10px] leading-snug mt-0.5 ml-4 line-clamp-2 ${
-                          isChosen ? 'text-white/50' : 'text-ink-muted'
+                      <div
+                        className={`mt-0.5 flex h-2.5 w-2.5 shrink-0 items-center justify-center rounded-full border-2 ${
+                          isChosen ? 'border-ink bg-ink' : 'border-neutral-300'
                         }`}
+                        aria-hidden
                       >
-                        {option.description}
-                      </p>
+                        {isChosen ? <span className="h-1 w-1 rounded-full bg-white" /> : null}
+                      </div>
                     </button>
                   );
                 })}

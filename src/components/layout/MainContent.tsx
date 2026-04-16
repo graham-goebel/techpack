@@ -569,7 +569,7 @@ export function MainContent({
             </div>
           </section>
 
-          <div className="grid w-full grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-px border border-rule-strong bg-rule-strong">
+          <div className="grid w-full grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-px border border-rule bg-rule">
             {projectTypes.map((type) => {
               const typeBlocks = blocks.filter((b) => {
                 const s = b.statusForTier(type.tier);

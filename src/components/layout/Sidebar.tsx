@@ -868,26 +868,26 @@ export function Sidebar({
                 <p className={`${SIDEBAR_LABEL} px-0.5`}>Process settings</p>
                 <div className="overflow-visible rounded-lg border border-rule bg-surface divide-y divide-rule">
                   <div className="group relative flex items-center justify-between gap-3 px-3 py-2.5">
-                    <div id="sidebar-subagents-desc" className="sr-only">
-                      Per-block lane models, stack chips, and prompt routing. Off = primary model only.
-                      Subagent models for focused sessions are set per block — open the Blocks tab, expand a block,
-                      and pick a model for its lane (or use primary).
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`${SIDEBAR_CARD_PRIMARY} cursor-help`}>Use subagents</p>
-                    </div>
-                    <div
-                      role="tooltip"
-                      className={SIDEBAR_HELP_TOOLTIP}
-                      aria-hidden
-                    >
-                      <p className="mb-1.5">
+                    <div className="relative flex min-h-[1.75rem] min-w-0 flex-1 items-center">
+                      <div id="sidebar-subagents-desc" className="sr-only">
                         Per-block lane models, stack chips, and prompt routing. Off = primary model only.
-                      </p>
-                      <p className="text-surface/80">
                         Subagent models for focused sessions are set per block — open the Blocks tab, expand a block,
                         and pick a model for its lane (or use primary).
-                      </p>
+                      </div>
+                      <p className={`${SIDEBAR_CARD_PRIMARY} cursor-help`}>Use subagents</p>
+                      <div
+                        role="tooltip"
+                        className={SIDEBAR_HELP_TOOLTIP}
+                        aria-hidden
+                      >
+                        <p className="mb-1.5">
+                          Per-block lane models, stack chips, and prompt routing. Off = primary model only.
+                        </p>
+                        <p className="text-surface/80">
+                          Subagent models for focused sessions are set per block — open the Blocks tab, expand a block,
+                          and pick a model for its lane (or use primary).
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -913,20 +913,20 @@ export function Sidebar({
                     </button>
                   </div>
                   <div className="group relative flex items-center justify-between gap-3 px-3 py-2.5">
-                    <div id="sidebar-build-desc" className="sr-only">
-                      Focus on the product concept; let the agent propose and refine stack choices as you iterate. Off =
-                      lock picks in the UI before generating prompts.
-                    </div>
-                    <div className="min-w-0 flex-1">
+                    <div className="relative flex min-h-[1.75rem] min-w-0 flex-1 items-center">
+                      <div id="sidebar-build-desc" className="sr-only">
+                        Focus on the product concept; let the agent propose and refine stack choices as you iterate. Off =
+                        lock picks in the UI before generating prompts.
+                      </div>
                       <p className={`${SIDEBAR_CARD_PRIMARY} cursor-help`}>Build as you go</p>
-                    </div>
-                    <div
-                      role="tooltip"
-                      className={SIDEBAR_HELP_TOOLTIP}
-                      aria-hidden
-                    >
-                      Focus on the product concept; let the agent propose and refine stack choices as you iterate. Off =
-                      lock picks in the UI before generating prompts.
+                      <div
+                        role="tooltip"
+                        className={SIDEBAR_HELP_TOOLTIP}
+                        aria-hidden
+                      >
+                        Focus on the product concept; let the agent propose and refine stack choices as you iterate. Off =
+                        lock picks in the UI before generating prompts.
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -950,20 +950,20 @@ export function Sidebar({
                     </button>
                   </div>
                   <div className="group relative flex items-center justify-between gap-3 px-3 py-2.5">
-                    <div id="sidebar-oss-desc" className="sr-only">
-                      Prefer free-to-use and open-source libraries, tools, and hosting in generated briefs. Off = no
-                      extra license constraint.
-                    </div>
-                    <div className="min-w-0 flex-1">
+                    <div className="relative flex min-h-[1.75rem] min-w-0 flex-1 items-center">
+                      <div id="sidebar-oss-desc" className="sr-only">
+                        Prefer free-to-use and open-source libraries, tools, and hosting in generated briefs. Off = no
+                        extra license constraint.
+                      </div>
                       <p className={`${SIDEBAR_CARD_PRIMARY} cursor-help`}>Free / OSS only</p>
-                    </div>
-                    <div
-                      role="tooltip"
-                      className={SIDEBAR_HELP_TOOLTIP}
-                      aria-hidden
-                    >
-                      Prefer free-to-use and open-source (OSS) dependencies, tools, and deployment paths in generated
-                      briefs. When off, commercial options are fine too.
+                      <div
+                        role="tooltip"
+                        className={SIDEBAR_HELP_TOOLTIP}
+                        aria-hidden
+                      >
+                        Prefer free-to-use and open-source (OSS) dependencies, tools, and deployment paths in generated
+                        briefs. When off, commercial options are fine too.
+                      </div>
                     </div>
                     <button
                       type="button"
