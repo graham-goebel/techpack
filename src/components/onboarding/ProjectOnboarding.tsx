@@ -176,7 +176,7 @@ export function ProjectOnboarding({
         <div className="mx-auto w-full min-w-0 max-w-3xl">
           <div className="min-w-0">
             <p className="struct-label mb-2">
-              Setup · Step {stepIndex + 1} of {STEPS.length}
+              Step {stepIndex + 1} of {STEPS.length}
             </p>
             <h1
               id="onboarding-title"
@@ -188,7 +188,7 @@ export function ProjectOnboarding({
             </h1>
             {projectType && (
               <div className="mt-2 flex min-w-0 items-center gap-2">
-                <span className="min-w-0 truncate text-[10px] text-ink-muted">{projectType.name}</span>
+                <span className="min-w-0 truncate text-[12px] text-ink-muted">{projectType.name}</span>
                 <ComplexityDots filled={projectType.tier} size="pill" />
               </div>
             )}
@@ -196,8 +196,8 @@ export function ProjectOnboarding({
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-5 py-8 sm:px-8 sm:py-10 pb-32">
+      <div className="flex-1 min-h-0 overflow-y-auto px-8 sm:px-10 lg:px-12">
+        <div className="mx-auto w-full min-w-0 max-w-3xl py-8 sm:py-10 pb-32">
           {step === 'details' && (
             <div className="space-y-6 animate-fade-in">
               <p className="text-sm text-ink-secondary leading-relaxed">
@@ -579,12 +579,12 @@ export function ProjectOnboarding({
         </div>
       </div>
 
-      <footer className="shrink-0 border-t border-rule bg-surface/95 backdrop-blur-sm px-5 py-4 sm:px-8">
+      <footer className="shrink-0 border-t border-rule bg-surface/95 backdrop-blur-sm px-8 py-4 sm:px-10 lg:px-12">
         <div className="max-w-3xl mx-auto flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
             onClick={goBack}
-            className="text-[10px] font-bold uppercase tracking-wider text-ink-muted hover:text-ink py-2.5 sm:py-0 text-center sm:text-left"
+            className="text-[10px] font-bold tracking-wider text-ink-muted hover:text-ink py-2.5 sm:py-0 text-center sm:text-left"
           >
             {step === 'details' ? '← Change project type' : '← Back'}
           </button>

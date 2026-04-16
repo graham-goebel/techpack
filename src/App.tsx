@@ -152,7 +152,6 @@ function App() {
         {confirmProjectTypeModal}
         <PromptsHomePage
           savedPrompts={normalizedSaved}
-          currentConfig={config}
           onOpenPrompt={handleOpenSaved}
           onDeletePrompt={handleDeleteSaved}
           onNewPrompt={handleNewPrompt}

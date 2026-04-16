@@ -15,7 +15,6 @@ function formatUpdated(ts: number): string {
 
 interface PromptsHomePageProps {
   savedPrompts: ProjectConfig[];
-  currentConfig: ProjectConfig;
   onOpenPrompt: (config: ProjectConfig) => void;
   onDeletePrompt: (id: string) => void;
   onNewPrompt: () => void;
@@ -23,7 +22,6 @@ interface PromptsHomePageProps {
 
 export function PromptsHomePage({
   savedPrompts,
-  currentConfig,
   onOpenPrompt,
   onDeletePrompt,
   onNewPrompt,
@@ -72,74 +70,76 @@ export function PromptsHomePage({
                 automatically.
               </p>
             ) : (
-              <ul className="m-0 grid w-full list-none grid-cols-1 gap-px rounded-none border border-rule-strong bg-rule-strong p-0 sm:grid-cols-2 lg:grid-cols-3">
-                {savedPrompts.map((item) => {
-                  const t = typeMeta(item.projectTypeId);
-                  const isCurrent = item.id === currentConfig.id;
-                  const packTitle = item.name.trim() || 'Untitled';
-                  return (
-                    <li
-                      key={item.id}
-                      className="group relative flex aspect-square min-h-0 min-w-0 flex-col overflow-hidden bg-surface shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition-[background-color,box-shadow] hover:bg-surface-raised hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => onOpenPrompt(item)}
-                        className="flex min-h-0 flex-1 flex-col justify-center gap-2 overflow-hidden p-4 pr-11 text-left transition-colors hover:bg-surface-raised/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink/12"
-                        aria-label={`Open tech pack: ${packTitle}`}
+              <div className="border border-rule-strong bg-white">
+                <ul className="m-0 grid w-full list-none grid-cols-1 gap-0 bg-white p-0 sm:grid-cols-2 lg:grid-cols-3">
+                  {savedPrompts.map((item) => {
+                    const t = typeMeta(item.projectTypeId);
+                    const packTitle = item.name.trim() || 'Untitled';
+                    return (
+                      <li
+                        key={item.id}
+                        className="group relative flex aspect-square min-h-0 min-w-0 flex-col overflow-hidden border-b border-r border-rule bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition-[background-color,box-shadow] hover:bg-surface-raised hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] max-sm:border-r-0 sm:max-lg:[&:nth-child(2n)]:border-r-0 lg:[&:nth-child(3n)]:border-r-0"
                       >
-                        <div className="flex min-w-0 items-start justify-between gap-2">
-                          <span className="min-w-0 truncate text-[28px] font-semibold leading-tight tracking-tight text-ink">
-                            {packTitle}
-                          </span>
-                          {t ? (
-                            <span className="shrink-0">
-                              <ComplexityDots filled={t.tier} size="pill" />
-                            </span>
-                          ) : null}
-                        </div>
-                        {isCurrent ? (
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Current file</span>
-                        ) : null}
-                        <p className="text-[10px] text-ink-muted">
-                          {t?.name ?? 'Project'} · {item.selectedBlockIds.length} blocks · Updated{' '}
-                          {formatUpdated(item.updatedAt)}
-                        </p>
-                        {item.projectDescription.trim() ? (
-                          <p className="line-clamp-3 text-[10px] leading-relaxed text-ink-secondary">
-                            {item.projectDescription.trim()}
-                          </p>
-                        ) : null}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeletePrompt(item.id);
-                        }}
-                        className="absolute right-1.5 top-1.5 z-10 rounded p-1.5 text-ink-faint transition-[opacity,background-color,color] md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100 hover:bg-red-50/90 hover:text-red-700 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ink/20 md:focus-visible:pointer-events-auto"
-                        aria-label={`Delete ${packTitle}`}
-                        title="Delete"
-                      >
-                        <svg
-                          className="h-3.5 w-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                          aria-hidden
+                        <button
+                          type="button"
+                          onClick={() => onOpenPrompt(item)}
+                          className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden p-4 pr-11 text-left transition-colors hover:bg-surface-raised/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink/12"
+                          aria-label={`Open tech pack: ${packTitle}`}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                          <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-2 overflow-hidden">
+                            <div className="flex min-w-0 items-start justify-between gap-2">
+                              <span className="min-w-0 truncate text-[28px] font-semibold leading-tight tracking-tight text-ink">
+                                {packTitle}
+                              </span>
+                              {t ? (
+                                <span className="shrink-0">
+                                  <ComplexityDots filled={t.tier} size="pill" />
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-[12px] text-ink-muted">
+                              {t?.name ?? 'Project'} · {item.selectedBlockIds.length} blocks
+                            </p>
+                            {item.projectDescription.trim() ? (
+                              <p className="line-clamp-3 text-[12px] leading-relaxed text-ink-secondary">
+                                {item.projectDescription.trim()}
+                              </p>
+                            ) : null}
+                          </div>
+                          <p className="mt-auto shrink-0 border-t border-rule/40 pt-2.5 text-[11px] tabular-nums leading-snug text-ink-faint">
+                            Updated {formatUpdated(item.updatedAt)}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeletePrompt(item.id);
+                          }}
+                          className="absolute right-1.5 top-1.5 z-10 rounded p-1.5 text-ink-faint transition-[opacity,background-color,color] md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100 md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100 hover:bg-red-50/90 hover:text-red-700 focus:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ink/20 md:focus-visible:pointer-events-auto"
+                          aria-label={`Delete ${packTitle}`}
+                          title="Delete"
+                        >
+                          <svg
+                            className="h-3.5 w-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            aria-hidden
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
           </div>
         </section>

@@ -333,18 +333,18 @@ function StackOptionalAddonsPanel({
 
   return (
     <div className="border-t border-rule bg-white">
-      <div className="px-5 py-5">
-        <p className="mb-1.5 text-[10px] font-mono font-medium uppercase tracking-[0.08em] text-ink-secondary">
+      <div className="px-5 py-6 sm:px-6 sm:py-7">
+        <p className="mb-2 text-[10px] font-mono font-medium uppercase tracking-[0.08em] text-ink-secondary">
           Optional skills & add-ons
         </p>
-        <p className="mb-4 text-[10px] leading-relaxed text-ink-muted">
+        <p className="mb-6 text-[10px] leading-relaxed text-ink-muted">
           Skills, MCPs, APIs, and catalog libraries match the Integrations sidebar. Packages are tied to this
           block. All toggles stay in sync with your prompt.
         </p>
 
         {visibleTabs.length > 1 ? (
-          <div className="-mx-5 mb-4 overflow-x-auto px-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div role="tablist" aria-label="Add-on categories" className="flex w-max min-w-full max-w-full flex-wrap gap-1.5">
+          <div className="-mx-5 mb-6 overflow-x-auto px-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-6 sm:px-6">
+            <div role="tablist" aria-label="Add-on categories" className="flex w-max min-w-full max-w-full flex-wrap gap-2">
               {visibleTabs.map((tab) => {
                 const n = selectedInTab(tab);
                 const isActive = tab === activeTab;
@@ -398,14 +398,14 @@ function StackOptionalAddonsPanel({
           className="overflow-visible"
         >
           {activeTab === 'packages' ? (
-            <div className="space-y-3">
+            <div className="space-y-6">
               {libCategories.map((cat) => (
                 <div key={cat}>
-                  <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-mono font-medium uppercase tracking-[0.08em] text-ink-secondary">
+                  <p className="mb-2 flex items-center gap-1.5 text-[10px] font-mono font-medium uppercase tracking-[0.08em] text-ink-secondary">
                     <LibraryCategoryLeadingIcon category={cat} />
                     {cat}
                   </p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {libs
                       .filter((l) => l.category === cat)
                       .map((lib) => (
@@ -426,7 +426,7 @@ function StackOptionalAddonsPanel({
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {integrationItems.map((item) => (
                 <IntegrationChip
                   key={item.id}
@@ -517,21 +517,18 @@ export function MainContent({
             aria-label="Project type"
             className="border-b border-dashed border-rule-strong/70 geist-grid geist-grid--field"
           >
-            {/* Same vertical rhythm as ProjectOnboarding header (2× / 3× majors); explainer sits below so this band stays compact */}
-            <div className="flex h-[calc(2*var(--geist-grid-major))] items-center px-8 sm:h-[calc(3*var(--geist-grid-major))] sm:px-10 lg:px-12">
+            <div className="px-8 py-6 sm:px-10 sm:py-7 lg:px-12">
               <div className="mx-auto w-full min-w-0 max-w-7xl 2xl:max-w-[90rem]">
                 <p className="struct-label mb-2">Tech pack · project type</p>
-                <h1 className="text-[32px] font-semibold leading-[1.08] tracking-[-0.03em] text-ink sm:text-[44px]">
+                <h1 className="mb-3 text-[32px] font-semibold leading-[1.08] tracking-[-0.03em] text-ink sm:mb-4 sm:text-[44px]">
                   What are you building?
                 </h1>
+                <p className="max-w-2xl text-xs leading-relaxed text-ink-muted sm:text-sm">
+                  Select a project type to get started. Complexity goes up with the type you pick: higher tiers include more
+                  stack blocks in scope and produce a longer, more detailed generated prompt—so the blueprint matches bigger,
+                  more integrated projects.
+                </p>
               </div>
-            </div>
-            <div className="mx-auto w-full max-w-7xl 2xl:max-w-[90rem] px-8 pb-4 pt-0 sm:px-10 sm:pb-5 lg:px-12">
-              <p className="max-w-2xl text-xs leading-relaxed text-ink-muted sm:text-sm">
-                Select a project type to get started. Complexity goes up with the type you pick: higher tiers include more
-                stack blocks in scope and produce a longer, more detailed generated prompt—so the blueprint matches bigger,
-                more integrated projects.
-              </p>
             </div>
           </section>
 
@@ -547,22 +544,24 @@ export function MainContent({
                   key={type.id}
                   type="button"
                   onClick={() => onSetProjectType(type.id)}
-                  className="group flex aspect-square min-h-0 min-w-0 w-full flex-col overflow-hidden text-left bg-white p-5 transition-[background] hover:bg-surface-raised focus:outline-none focus-visible:z-[1] focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  className="group flex aspect-square min-h-0 min-w-0 w-full flex-col overflow-hidden text-left bg-white p-5 transition-[background-color,box-shadow] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] hover:bg-surface-raised hover:shadow-[0_10px_38px_rgba(0,0,0,0.045)] focus:outline-none focus-visible:z-[1] focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-2 focus-visible:ring-offset-surface motion-reduce:transition-none motion-reduce:duration-200"
                 >
-                  <div className="shrink-0">
-                    <div aria-hidden className="mb-2 flex items-center">
-                      <ComplexityDots filled={type.tier} size="dot" />
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center">
+                    <div className="shrink-0">
+                      <div aria-hidden className="mb-2 flex items-center">
+                        <ComplexityDots filled={type.tier} size="dot" />
+                      </div>
+                      <h3 className="mb-1 line-clamp-2 text-[22px] font-semibold leading-tight tracking-tight text-ink sm:text-[26px]">
+                        {type.name}
+                      </h3>
+                      <p className="mb-2 line-clamp-2 text-xs leading-snug text-ink-muted">{type.tagline}</p>
+                      <div className="mb-2 h-px bg-rule/30" />
                     </div>
-                    <h3 className="mb-1 line-clamp-2 text-[18px] font-medium tracking-tight text-ink transition-colors group-hover:text-accent">
-                      {type.name}
-                    </h3>
-                    <p className="mb-2 line-clamp-2 text-[10px] leading-snug text-ink-muted">{type.tagline}</p>
-                    <div className="mb-2 h-px bg-rule/30" />
+                    <p className="mt-0 max-h-0 overflow-hidden text-[12px] leading-relaxed text-ink-secondary opacity-0 transition-[max-height,margin-top,opacity] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none motion-reduce:duration-200 line-clamp-5 group-hover:mt-1 group-hover:max-h-32 group-hover:opacity-100 sm:group-hover:max-h-36 group-focus-within:mt-1 group-focus-within:max-h-32 group-focus-within:opacity-100 sm:group-focus-within:max-h-36">
+                      {type.description}
+                    </p>
                   </div>
-                  <p className="min-h-0 flex-1 text-[10px] leading-relaxed text-ink-secondary line-clamp-5">
-                    {type.description}
-                  </p>
-                  <div className="mt-auto shrink-0 pt-2 flex items-center gap-1.5 text-[10px] text-ink-faint">
+                  <div className="shrink-0 border-t border-rule/40 pt-3 mt-2 flex items-center gap-1.5 text-[10px] text-ink-faint">
                     <span className="font-semibold tabular-nums">{typeBlocks.length}</span>
                     <span>blocks</span>
                   </div>
