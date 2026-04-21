@@ -9,6 +9,11 @@ import { modelRecommendations } from '../../data/models';
 import { getSubagentLaneForBlock } from '../../data/blockSubagentLane';
 import { groupVisibleBlocksByStackLayer } from '../../data/stackLayers';
 import { generatePrompt } from '../../utils/promptGenerator';
+import {
+  buildPromptBundleZip,
+  defaultPromptBundleFileName,
+  downloadUint8ArrayAsFile,
+} from '../../utils/downloadPromptBundle';
 import { ArchitectureFlowCanvas } from '../architecture/ArchitectureFlowCanvas';
 import { FloatingWorkspaceExitButton } from '../ui/FloatingWorkspaceExitButton';
 import { BlockOcticon } from '../icons/OcticonById';
@@ -475,6 +480,7 @@ export function MainContent({
   onExitWithoutSaving,
 }: MainContentProps) {
   const [copied, setCopied] = useState(false);
+  const [bundleBusy, setBundleBusy] = useState(false);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
   const [stackAddonTab, setStackAddonTab] = useState<StackAddonTab>('packages');
   const [mainTab, setMainTab] = useState<'architecture' | 'map' | 'prompt'>('architecture');
@@ -509,6 +515,25 @@ export function MainContent({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const canDownloadBundle =
+    (prompt.length > 0 || (config.resources ?? []).length > 0) && !bundleBusy;
+
+  const handleDownloadBundle = useCallback(() => {
+    if (bundleBusy) return;
+    if (!(prompt.length > 0 || (config.resources ?? []).length > 0)) return;
+    setBundleBusy(true);
+    try {
+      const zip = buildPromptBundleZip({
+        projectName: config.name,
+        promptMarkdown: prompt,
+        resources: config.resources ?? [],
+      });
+      downloadUint8ArrayAsFile(zip, defaultPromptBundleFileName(config.name));
+    } finally {
+      setBundleBusy(false);
+    }
+  }, [bundleBusy, config.name, config.resources, prompt]);
 
   const visibleBlocks = useMemo(
     () =>
@@ -834,20 +859,31 @@ export function MainContent({
 
             {mainTab === 'prompt' && (
               <div className="flex-1 min-h-0 flex flex-col border border-rule bg-surface rounded-sm overflow-hidden">
-                <div className="shrink-0 flex items-center justify-between gap-3 border-b border-rule bg-surface-raised/60 px-4 py-2.5">
+                <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-rule bg-surface-raised/60 px-4 py-2.5">
                   <span className="text-[10px] font-mono font-medium text-ink-muted uppercase tracking-[0.12em] tabular-nums">
                     {prompt.length > 0
                       ? `${prompt.length.toLocaleString()} characters`
                       : 'No prompt yet'}
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleCopy}
-                    disabled={!prompt}
-                    className="text-[10px] font-bold text-ink uppercase tracking-wider border border-rule px-3 py-1 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:pointer-events-none"
-                  >
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDownloadBundle}
+                      disabled={!canDownloadBundle}
+                      title="Download prompt as prompt.md, assets folder, and links"
+                      className="text-[10px] font-bold text-ink uppercase tracking-wider border border-rule px-3 py-1 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      {bundleBusy ? 'Zipping…' : 'Download .zip'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopy}
+                      disabled={!prompt}
+                      className="text-[10px] font-bold text-ink uppercase tracking-wider border border-rule px-3 py-1 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
                 </div>
                 <pre className="flex-1 min-h-0 overflow-auto p-5 text-[10px] text-ink-secondary font-mono leading-[1.7] whitespace-pre-wrap [scrollbar-gutter:stable]">
                   {prompt || 'Configure your project to generate a prompt.'}
